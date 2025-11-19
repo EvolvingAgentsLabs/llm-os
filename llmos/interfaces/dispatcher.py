@@ -1,16 +1,19 @@
 """
 Dispatcher - The Brain of the LLM OS
-Decides between Learner and Follower modes based on token economy
+Decides between Learner, Follower, and Orchestration modes based on token economy
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 from kernel.bus import EventBus
 from kernel.token_economy import TokenEconomy, LowBatteryError
-from memory.store import MemoryStore
-from memory.traces import TraceManager, ExecutionTrace
+from kernel.project_manager import ProjectManager, Project
+from memory.store_sdk import MemoryStore
+from memory.traces_sdk import TraceManager, ExecutionTrace
+from memory.query_sdk import MemoryQueryInterface
 from interfaces.cortex import Cortex
+from interfaces.sdk_client import LLMOSSDKClient, is_sdk_available
 
 
 class TaskBlock:
@@ -36,8 +39,13 @@ class TaskBlock:
 
 class Dispatcher:
     """
-    The Dispatcher - Makes the Learner/Follower decision
+    The Dispatcher - Makes the Learner/Follower/Orchestration decision
     This is the "operating system scheduler" that optimizes for token cost
+
+    Now supports three modes:
+    1. FOLLOWER: Execute proven trace (fast, cheap, deterministic)
+    2. LEARNER: Learn new pattern (slow, expensive, creative)
+    3. ORCHESTRATOR: Multi-agent coordination (complex, adaptive, powerful)
     """
 
     def __init__(
@@ -45,35 +53,90 @@ class Dispatcher:
         event_bus: EventBus,
         token_economy: TokenEconomy,
         memory_store: MemoryStore,
-        trace_manager: TraceManager
+        trace_manager: TraceManager,
+        project_manager: Optional[ProjectManager] = None,
+        workspace: Optional[Path] = None
     ):
         self.event_bus = event_bus
         self.token_economy = token_economy
         self.memory_store = memory_store
         self.trace_manager = trace_manager
+        self.project_manager = project_manager
+        self.workspace = workspace or Path("./workspace")
 
         # Initialize cortex (will be lazy-loaded)
         self.cortex: Cortex = None
 
+        # Initialize orchestrator (will be lazy-loaded)
+        self.orchestrator = None
+
+        # Initialize memory query interface
+        self.memory_query = MemoryQueryInterface(trace_manager, memory_store)
+
+        # Initialize SDK client (if available)
+        self.sdk_client: Optional[LLMOSSDKClient] = None
+        if is_sdk_available():
+            self.sdk_client = LLMOSSDKClient(
+                workspace=self.workspace,
+                trace_manager=self.trace_manager,
+                token_economy=self.token_economy,  # For budget control hooks
+                memory_query=self.memory_query  # For context injection hooks
+            )
+        else:
+            print("⚠️  Claude Agent SDK not available - using fallback cortex mode")
+            print("   Install with: pip install claude-agent-sdk")
+
     async def _ensure_cortex(self):
         """Lazy initialization of cortex"""
         if self.cortex is None:
-            from pathlib import Path
-            workspace = Path("./workspace")
-            self.cortex = Cortex(self.event_bus, workspace)
+            self.cortex = Cortex(self.event_bus, self.workspace)
             await self.cortex.initialize()
 
-    async def dispatch(self, goal: str) -> Dict[str, Any]:
+    async def _ensure_orchestrator(self):
+        """Lazy initialization of orchestrator"""
+        if self.orchestrator is None:
+            from kernel.agent_factory import AgentFactory
+            from kernel.component_registry import ComponentRegistry
+            from interfaces.orchestrator import SystemAgent
+
+            # Initialize dependencies
+            agent_factory = AgentFactory(self.workspace)
+            component_registry = ComponentRegistry()
+
+            # Register built-in agents
+            for agent in agent_factory.list_agents():
+                component_registry.register_agent(agent)
+
+            self.orchestrator = SystemAgent(
+                event_bus=self.event_bus,
+                project_manager=self.project_manager,
+                agent_factory=agent_factory,
+                component_registry=component_registry,
+                token_economy=self.token_economy,
+                trace_manager=self.trace_manager,
+                workspace=self.workspace
+            )
+
+    async def dispatch(
+        self,
+        goal: str,
+        mode: str = "AUTO",
+        project: Optional[Project] = None,
+        max_cost_usd: float = 5.0
+    ) -> Dict[str, Any]:
         """
-        Dispatch a goal to either Learner or Follower mode
+        Dispatch a goal to appropriate execution mode
 
         This is the core algorithm that makes LLM OS economical:
-        1. Check if we have a proven trace
-        2. If yes → Follower Mode (cheap, fast, deterministic)
-        3. If no → Learner Mode (expensive, slow, creative)
+        1. Check complexity (simple vs complex)
+        2. Check if we have a proven trace
+        3. Route to: FOLLOWER (proven) / LEARNER (novel) / ORCHESTRATOR (complex)
 
         Args:
             goal: Natural language goal
+            mode: "AUTO" (auto-detect), "LEARNER", "FOLLOWER", or "ORCHESTRATOR"
+            project: Optional project context for orchestration
+            max_cost_usd: Maximum cost budget
 
         Returns:
             Result dictionary
@@ -82,51 +145,149 @@ class Dispatcher:
         print(f"🎯 Dispatching: {goal}")
         print("=" * 60)
 
-        # Step 1: Query memory for matching trace
+        # Determine execution mode
+        if mode == "AUTO":
+            mode = await self._determine_mode(goal)
+
+        print(f"📋 Selected Mode: {mode}")
+        print("=" * 60)
+
+        # Route to appropriate mode
+        if mode == "ORCHESTRATOR":
+            return await self._dispatch_orchestrator(goal, project, max_cost_usd)
+        elif mode == "FOLLOWER":
+            return await self._dispatch_follower(goal)
+        else:  # LEARNER
+            return await self._dispatch_learner(goal, project, max_cost_usd)
+
+    async def _determine_mode(self, goal: str) -> str:
+        """
+        Automatically determine the best execution mode
+
+        Args:
+            goal: Natural language goal
+
+        Returns:
+            Mode string: "FOLLOWER", "LEARNER", or "ORCHESTRATOR"
+        """
+        # Check if trace exists (FOLLOWER mode)
+        trace = self.trace_manager.find_trace(goal, confidence_threshold=0.9)
+        if trace:
+            print(f"📦 Found high-confidence trace (success rate: {trace.success_rating:.0%})")
+            return "FOLLOWER"
+
+        # Check complexity indicators for ORCHESTRATOR mode
+        complexity_indicators = [
+            "and",  # Multiple tasks
+            "then",  # Sequential steps
+            "create a project",  # Project management
+            "analyze and",  # Multi-step analysis
+            "research",  # Complex investigation
+            "multiple",  # Multiple items
+            "coordinate",  # Coordination needed
+            "delegate",  # Delegation needed
+        ]
+
+        goal_lower = goal.lower()
+        complexity_score = sum(1 for indicator in complexity_indicators if indicator in goal_lower)
+
+        if complexity_score >= 2:
+            print(f"🔀 Complex task detected (complexity score: {complexity_score})")
+            return "ORCHESTRATOR"
+
+        # Default to LEARNER for novel, simple tasks
+        print("🆕 Novel task - using Learner mode")
+        return "LEARNER"
+
+    async def _dispatch_follower(self, goal: str) -> Dict[str, Any]:
+        """Dispatch to Follower mode"""
         trace = self.trace_manager.find_trace(goal, confidence_threshold=0.9)
 
-        # Step 2: Decide mode
-        if trace:
-            print(f"📦 Found execution trace (confidence: {trace.success_rating:.2f})")
-            print(f"💡 Mode: FOLLOWER (Cost: ~$0, Time: ~{trace.estimated_time_secs:.1f}s)")
-
-            mode = "FOLLOWER"
-            estimated_cost = 0.0
-
-        else:
-            print("🆕 No matching trace found")
-            print("💡 Mode: LEARNER (Cost: ~$0.50, Time: variable)")
-
-            mode = "LEARNER"
-            estimated_cost = 0.50  # Rough estimate for Claude API call
-
-            # Check budget
-            try:
-                self.token_economy.check_budget(estimated_cost)
-            except LowBatteryError as e:
-                return {
-                    "success": False,
-                    "error": str(e),
-                    "mode": None
-                }
-
-        # Step 3: Execute
-        await self._ensure_cortex()
-
-        if mode == "FOLLOWER":
-            success = await self.cortex.follow(trace)
-
-            # Update trace statistics
-            self.trace_manager.update_trace_usage(trace.goal_signature, success)
-
+        if not trace:
             return {
-                "success": success,
-                "mode": mode,
-                "trace": trace,
-                "cost": 0.0
+                "success": False,
+                "error": "No trace found for Follower mode",
+                "mode": "FOLLOWER"
             }
 
-        else:  # LEARNER
+        print(f"💡 Cost: ~$0, Time: ~{trace.estimated_time_secs:.1f}s")
+
+        await self._ensure_cortex()
+        success = await self.cortex.follow(trace)
+
+        # Update trace statistics
+        self.trace_manager.update_trace_usage(trace.goal_signature, success)
+
+        return {
+            "success": success,
+            "mode": "FOLLOWER",
+            "trace": trace,
+            "cost": 0.0
+        }
+
+    async def _dispatch_learner(
+        self,
+        goal: str,
+        project: Optional[Project] = None,
+        max_cost_usd: float = 5.0
+    ) -> Dict[str, Any]:
+        """
+        Dispatch to Learner mode
+
+        Uses Claude Agent SDK when available for proper integration.
+        Falls back to cortex if SDK not installed.
+        """
+        estimated_cost = 0.50
+
+        print(f"💡 Cost: ~${estimated_cost:.2f}, Time: variable")
+
+        # Check budget
+        try:
+            self.token_economy.check_budget(max_cost_usd)
+        except LowBatteryError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "mode": "LEARNER"
+            }
+
+        # Use SDK client if available (PROPER WAY)
+        if self.sdk_client:
+            print("🔌 Using Claude Agent SDK (proper integration)")
+
+            # Compute goal signature for trace storage
+            import hashlib
+            goal_signature = hashlib.sha256(goal.encode()).hexdigest()[:16]
+
+            # Get available agents to register in SDK
+            available_agents = None
+            if hasattr(self, 'orchestrator') and self.orchestrator:
+                available_agents = self.orchestrator.component_registry.list_agents()
+
+            # Execute with SDK
+            result = await self.sdk_client.execute_learner_mode(
+                goal=goal,
+                goal_signature=goal_signature,
+                project=project,
+                available_agents=available_agents,  # Pass all agents!
+                max_cost_usd=max_cost_usd
+            )
+
+            # Deduct actual cost
+            if result["success"]:
+                self.token_economy.deduct(
+                    result["cost"],
+                    f"Learner: {goal[:50]}..."
+                )
+
+            return result
+
+        # Fallback to cortex (if SDK not available)
+        else:
+            print("⚠️  Using fallback cortex mode (SDK not available)")
+
+            await self._ensure_cortex()
+
             # Execute with full LLM reasoning
             trace = await self.cortex.learn(goal)
 
@@ -134,12 +295,59 @@ class Dispatcher:
             self.trace_manager.save_trace(trace)
 
             # Deduct cost
-            actual_cost = estimated_cost  # TODO: Get actual cost from Claude SDK
+            actual_cost = estimated_cost
             self.token_economy.deduct(actual_cost, f"Learner: {goal[:50]}...")
 
             return {
                 "success": True,
-                "mode": mode,
+                "mode": "LEARNER",
                 "trace": trace,
                 "cost": actual_cost
             }
+
+    async def _dispatch_orchestrator(
+        self,
+        goal: str,
+        project: Optional[Project],
+        max_cost_usd: float
+    ) -> Dict[str, Any]:
+        """Dispatch to Orchestrator mode (multi-agent)"""
+        print(f"💡 Multi-agent orchestration")
+        print(f"💡 Max Cost: ${max_cost_usd:.2f}")
+
+        # Check budget
+        try:
+            self.token_economy.check_budget(max_cost_usd)
+        except LowBatteryError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "mode": "ORCHESTRATOR"
+            }
+
+        await self._ensure_orchestrator()
+
+        # Execute orchestration
+        result = await self.orchestrator.orchestrate(
+            goal=goal,
+            project=project,
+            max_cost_usd=max_cost_usd
+        )
+
+        # Deduct actual cost
+        if result.success:
+            self.token_economy.deduct(
+                result.cost_usd,
+                f"Orchestrator: {goal[:50]}..."
+            )
+
+        return {
+            "success": result.success,
+            "mode": "ORCHESTRATOR",
+            "output": result.output,
+            "steps_completed": result.steps_completed,
+            "total_steps": result.total_steps,
+            "cost": result.cost_usd,
+            "execution_time": result.execution_time_secs,
+            "state_summary": result.state_summary
+        }
