@@ -86,6 +86,14 @@ cd llmos
 pip install -r requirements.txt
 ```
 
+**Required Dependencies:**
+- `claude-agent-sdk>=0.1.0` - **REQUIRED** for proper Claude integration
+- `anyio>=4.0.0` - Async support
+- `pyyaml>=6.0` - Configuration
+- `numpy>=1.24.0` - Data processing
+
+**Note:** llmos now uses Claude Agent SDK natively. The SDK is required for Learner and Orchestrator modes. Without it, the system falls back to legacy cortex mode with limited functionality.
+
 ## Quick Start
 
 ### Interactive Mode
@@ -132,9 +140,10 @@ llmos/
 │   ├── store.py                # Legacy store (backup)
 │   └── traces.py               # Legacy traces (backup)
 ├── interfaces/                  # Cortex layer
-│   ├── cortex.py               # LLM interface (Claude Agent SDK)
-│   ├── dispatcher.py           # 3-mode router (Learner/Follower/Orchestrator)
-│   └── orchestrator.py         # Multi-agent coordination (Phase 2)
+│   ├── sdk_client.py           # Claude SDK Client wrapper (Phase 2 - PROPER INTEGRATION)
+│   ├── cortex.py               # LLM interface (legacy fallback)
+│   ├── dispatcher.py           # 3-mode router (uses SDK)
+│   └── orchestrator.py         # Multi-agent coordination (uses SDK)
 ├── plugins/                     # Extensible tools
 │   ├── __init__.py             # Plugin loader
 │   └── example_tools.py        # Example tools
@@ -235,7 +244,36 @@ await os.execute("Summarize papers on quantum ML from arxiv")
 
 ## Phase 2 Features (NEW)
 
-### 1. Claude SDK Memory Integration
+### 1. Native Claude Agent SDK Integration
+
+**Proper SDK Usage:**
+llmos now uses Claude Agent SDK correctly via `ClaudeSDKClient` and `ClaudeAgentOptions`:
+
+```python
+# Learner Mode (SDK-based)
+async with ClaudeSDKClient(
+    options=ClaudeAgentOptions(
+        system_prompt=agent.system_prompt,
+        cwd=str(project.path),
+        permission_mode="acceptEdits"
+    )
+) as client:
+    await client.connect(prompt=goal)
+    async for message in client.receive_response():
+        # Build execution trace from messages
+        process_message(message)
+```
+
+**Key Integration Points:**
+- ✅ `LLMOSSDKClient` wrapper in `interfaces/sdk_client.py`
+- ✅ Dispatcher uses SDK for Learner mode
+- ✅ Orchestrator uses SDK for multi-agent coordination
+- ✅ Automatic trace building from SDK messages
+- ✅ Project-aware execution with `cwd` setting
+- ✅ Permission modes for tool execution
+- ✅ Fallback to legacy cortex if SDK unavailable
+
+### 2. Claude SDK Memory Integration
 
 File-based memory system aligned with Claude Agent SDK conventions:
 

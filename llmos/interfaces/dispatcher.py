@@ -9,10 +9,11 @@ from pathlib import Path
 from kernel.bus import EventBus
 from kernel.token_economy import TokenEconomy, LowBatteryError
 from kernel.project_manager import ProjectManager, Project
-from memory.store import MemoryStore
-from memory.traces import TraceManager, ExecutionTrace
-from memory.query import MemoryQueryInterface
+from memory.store_sdk import MemoryStore
+from memory.traces_sdk import TraceManager, ExecutionTrace
+from memory.query_sdk import MemoryQueryInterface
 from interfaces.cortex import Cortex
+from interfaces.sdk_client import LLMOSSDKClient, is_sdk_available
 
 
 class TaskBlock:
@@ -71,6 +72,17 @@ class Dispatcher:
 
         # Initialize memory query interface
         self.memory_query = MemoryQueryInterface(trace_manager, memory_store)
+
+        # Initialize SDK client (if available)
+        self.sdk_client: Optional[LLMOSSDKClient] = None
+        if is_sdk_available():
+            self.sdk_client = LLMOSSDKClient(
+                workspace=self.workspace,
+                trace_manager=self.trace_manager
+            )
+        else:
+            print("⚠️  Claude Agent SDK not available - using fallback cortex mode")
+            print("   Install with: pip install claude-agent-sdk")
 
     async def _ensure_cortex(self):
         """Lazy initialization of cortex"""
@@ -144,7 +156,7 @@ class Dispatcher:
         elif mode == "FOLLOWER":
             return await self._dispatch_follower(goal)
         else:  # LEARNER
-            return await self._dispatch_learner(goal)
+            return await self._dispatch_learner(goal, project, max_cost_usd)
 
     async def _determine_mode(self, goal: str) -> str:
         """
@@ -211,15 +223,25 @@ class Dispatcher:
             "cost": 0.0
         }
 
-    async def _dispatch_learner(self, goal: str) -> Dict[str, Any]:
-        """Dispatch to Learner mode"""
+    async def _dispatch_learner(
+        self,
+        goal: str,
+        project: Optional[Project] = None,
+        max_cost_usd: float = 5.0
+    ) -> Dict[str, Any]:
+        """
+        Dispatch to Learner mode
+
+        Uses Claude Agent SDK when available for proper integration.
+        Falls back to cortex if SDK not installed.
+        """
         estimated_cost = 0.50
 
         print(f"💡 Cost: ~${estimated_cost:.2f}, Time: variable")
 
         # Check budget
         try:
-            self.token_economy.check_budget(estimated_cost)
+            self.token_economy.check_budget(max_cost_usd)
         except LowBatteryError as e:
             return {
                 "success": False,
@@ -227,24 +249,53 @@ class Dispatcher:
                 "mode": "LEARNER"
             }
 
-        await self._ensure_cortex()
+        # Use SDK client if available (PROPER WAY)
+        if self.sdk_client:
+            print("🔌 Using Claude Agent SDK (proper integration)")
 
-        # Execute with full LLM reasoning
-        trace = await self.cortex.learn(goal)
+            # Compute goal signature for trace storage
+            import hashlib
+            goal_signature = hashlib.sha256(goal.encode()).hexdigest()[:16]
 
-        # Save the new trace for future use
-        self.trace_manager.save_trace(trace)
+            # Execute with SDK
+            result = await self.sdk_client.execute_learner_mode(
+                goal=goal,
+                goal_signature=goal_signature,
+                project=project,
+                max_cost_usd=max_cost_usd
+            )
 
-        # Deduct cost
-        actual_cost = estimated_cost  # TODO: Get actual cost from Claude SDK
-        self.token_economy.deduct(actual_cost, f"Learner: {goal[:50]}...")
+            # Deduct actual cost
+            if result["success"]:
+                self.token_economy.deduct(
+                    result["cost"],
+                    f"Learner: {goal[:50]}..."
+                )
 
-        return {
-            "success": True,
-            "mode": "LEARNER",
-            "trace": trace,
-            "cost": actual_cost
-        }
+            return result
+
+        # Fallback to cortex (if SDK not available)
+        else:
+            print("⚠️  Using fallback cortex mode (SDK not available)")
+
+            await self._ensure_cortex()
+
+            # Execute with full LLM reasoning
+            trace = await self.cortex.learn(goal)
+
+            # Save the new trace for future use
+            self.trace_manager.save_trace(trace)
+
+            # Deduct cost
+            actual_cost = estimated_cost
+            self.token_economy.deduct(actual_cost, f"Learner: {goal[:50]}...")
+
+            return {
+                "success": True,
+                "mode": "LEARNER",
+                "trace": trace,
+                "cost": actual_cost
+            }
 
     async def _dispatch_orchestrator(
         self,

@@ -22,7 +22,7 @@ from kernel.agent_factory import AgentFactory, AgentSpec
 from kernel.component_registry import ComponentRegistry
 from kernel.state_manager import StateManager, ExecutionStep
 from kernel.token_economy import TokenEconomy
-from memory.traces import TraceManager
+from memory.traces_sdk import TraceManager
 
 
 @dataclass
