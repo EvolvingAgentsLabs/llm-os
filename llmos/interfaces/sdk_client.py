@@ -8,17 +8,39 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 try:
-    from claude_agent_sdk import ClaudeSDKClient, query as sdk_query
+    from claude_agent_sdk import ClaudeSDKClient, query as sdk_query, AgentDefinition
     from claude_agent_sdk.types import ClaudeAgentOptions, HookEvent, HookMatcher, Message
     from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
+    AgentDefinition = None
     print("Warning: claude-agent-sdk not installed. Install with: pip install claude-agent-sdk")
 
 from memory.traces_sdk import ExecutionTrace
 from kernel.project_manager import Project
 from kernel.agent_factory import AgentSpec
+
+
+def agent_spec_to_definition(spec: AgentSpec) -> 'AgentDefinition':
+    """
+    Convert AgentSpec to Claude SDK AgentDefinition
+
+    Args:
+        spec: AgentSpec instance
+
+    Returns:
+        AgentDefinition for SDK
+    """
+    if not SDK_AVAILABLE or AgentDefinition is None:
+        raise RuntimeError("Claude Agent SDK not available")
+
+    return AgentDefinition(
+        description=spec.description,
+        prompt=spec.system_prompt,
+        tools=spec.tools,
+        model="sonnet"  # Default model for agents
+    )
 
 
 class TraceBuilder:
@@ -125,6 +147,7 @@ class LLMOSSDKClient:
         self,
         agent_spec: Optional[AgentSpec] = None,
         project: Optional[Project] = None,
+        available_agents: Optional[List[AgentSpec]] = None,
         permission_mode: str = "default",
         hooks: Optional[Dict[HookEvent, List[HookMatcher]]] = None
     ) -> ClaudeAgentOptions:
@@ -132,8 +155,9 @@ class LLMOSSDKClient:
         Build ClaudeAgentOptions from agent spec and project
 
         Args:
-            agent_spec: Agent specification
+            agent_spec: Primary agent specification (for system_prompt)
             project: Project context
+            available_agents: List of all available agents to register
             permission_mode: Permission mode for tools
             hooks: Optional hooks for events
 
@@ -143,14 +167,24 @@ class LLMOSSDKClient:
         # Determine working directory
         cwd = str(project.path) if project else str(self.workspace)
 
-        # Build system prompt
+        # Build system prompt (for primary agent)
         system_prompt = None
         if agent_spec:
             system_prompt = agent_spec.system_prompt
 
+        # Register all available agents as AgentDefinitions
+        agents_dict = {}
+        if available_agents:
+            for spec in available_agents:
+                try:
+                    agents_dict[spec.name] = agent_spec_to_definition(spec)
+                except Exception as e:
+                    print(f"Warning: Could not register agent {spec.name}: {e}")
+
         return ClaudeAgentOptions(
             system_prompt=system_prompt,
             cwd=cwd,
+            agents=agents_dict,  # Register all agents!
             permission_mode=permission_mode,
             hooks=hooks or {}
         )
@@ -161,6 +195,7 @@ class LLMOSSDKClient:
         goal_signature: str,
         agent_spec: Optional[AgentSpec] = None,
         project: Optional[Project] = None,
+        available_agents: Optional[List[AgentSpec]] = None,
         max_cost_usd: float = 5.0
     ) -> Dict[str, Any]:
         """
@@ -174,6 +209,7 @@ class LLMOSSDKClient:
             goal_signature: Signature for trace storage
             agent_spec: Optional agent specification
             project: Optional project context
+            available_agents: List of all available agents to register
             max_cost_usd: Maximum cost budget
 
         Returns:
@@ -181,10 +217,11 @@ class LLMOSSDKClient:
         """
         trace_builder = TraceBuilder(goal)
 
-        # Build SDK options
+        # Build SDK options with all available agents
         options = self._build_agent_options(
             agent_spec=agent_spec,
             project=project,
+            available_agents=available_agents,  # Register all agents!
             permission_mode="acceptEdits"  # Auto-accept edits in Learner mode
         )
 

@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 try:
-    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+    from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, AgentDefinition
 except ImportError:
     print("Warning: claude-agent-sdk not installed. Install with: pip install claude-agent-sdk")
     ClaudeSDKClient = None
     ClaudeAgentOptions = None
+    AgentDefinition = None
 
 from kernel.bus import EventBus, Event, EventType
 from kernel.project_manager import Project, ProjectManager
@@ -155,44 +156,72 @@ class SystemAgent:
             memory_insights = await self._consult_memory(goal)
             state.set_variable("memory_insights", memory_insights)
 
-            # Step 2: Decompose goal using Claude Agent SDK
+            # Step 2: Register all agents as AgentDefinitions
+            all_agents = self.component_registry.list_agents()
+            agents_dict = {}
+            if all_agents and AgentDefinition:
+                for agent in all_agents:
+                    try:
+                        agents_dict[agent.name] = AgentDefinition(
+                            description=agent.description,
+                            prompt=agent.system_prompt,
+                            tools=agent.tools,
+                            model="sonnet"
+                        )
+                    except Exception as e:
+                        state.log_event("AGENT_REGISTRATION_FAILED", {
+                            "agent": agent.name,
+                            "error": str(e)
+                        })
+
+            # Step 3: Create shared SDK client with all agents
+            options = ClaudeAgentOptions(
+                agents=agents_dict,  # All agents registered!
+                cwd=str(project.root_path),
+                permission_mode="acceptEdits"
+            )
+
+            # Step 4: Decompose goal using Claude Agent SDK
             state.log_event("GOAL_DECOMPOSITION", {"phase": "started"})
             plan = await self._decompose_goal(goal, project, memory_insights)
             state.set_plan(plan)
 
-            # Step 3: Execute plan
+            # Step 5: Execute plan with shared client
             total_cost = 0.0
-            for step in plan:
-                state.update_step_status(step.step_number, "in_progress")
+            async with ClaudeSDKClient(options=options) as client:
+                for step in plan:
+                    state.update_step_status(step.step_number, "in_progress")
 
-                # Check budget
-                if total_cost >= max_cost_usd:
-                    state.log_event("BUDGET_EXCEEDED", {
-                        "total_cost": total_cost,
-                        "max_cost": max_cost_usd
-                    })
-                    break
+                    # Check budget
+                    if total_cost >= max_cost_usd:
+                        state.log_event("BUDGET_EXCEEDED", {
+                            "total_cost": total_cost,
+                            "max_cost": max_cost_usd
+                        })
+                        break
 
-                # Execute step
-                step_result = await self._execute_step(step, project, state)
-
-                if step_result["success"]:
-                    state.update_step_status(
-                        step.step_number,
-                        "completed",
-                        result=step_result.get("output")
+                    # Execute step with shared client
+                    step_result = await self._execute_step_with_client(
+                        client, step, project, state
                     )
-                    total_cost += step_result.get("cost", 0.0)
-                else:
-                    state.update_step_status(
-                        step.step_number,
-                        "failed",
-                        error=step_result.get("error")
-                    )
-                    # Continue or halt based on criticality
-                    # For now, continue
 
-            # Step 4: Consolidate results
+                    if step_result["success"]:
+                        state.update_step_status(
+                            step.step_number,
+                            "completed",
+                            result=step_result.get("output")
+                        )
+                        total_cost += step_result.get("cost", 0.0)
+                    else:
+                        state.update_step_status(
+                            step.step_number,
+                            "failed",
+                            error=step_result.get("error")
+                        )
+                        # Continue or halt based on criticality
+                        # For now, continue
+
+            # Step 6: Consolidate results
             execution_summary = state.get_execution_summary()
             state.mark_execution_complete(success=True)
 
@@ -375,16 +404,21 @@ Be specific and actionable.
 
         return steps
 
-    async def _execute_step(
+    async def _execute_step_with_client(
         self,
+        client: ClaudeSDKClient,
         step: ExecutionStep,
         project: Project,
         state: StateManager
     ) -> Dict[str, Any]:
         """
-        Execute a single step, potentially delegating to specialized agent
+        Execute a single step using shared SDK client with agent delegation
+
+        Uses natural language to delegate to registered agents:
+        "Use the {agent_name} agent to {task_description}"
 
         Args:
+            client: Shared ClaudeSDKClient with all agents registered
             step: ExecutionStep to execute
             project: Project context
             state: State manager
@@ -398,24 +432,23 @@ Be specific and actionable.
             "agent": step.agent
         })
 
-        # Get agent spec
+        # Check if agent exists
         agent_spec = self.component_registry.get_agent(step.agent)
 
         if agent_spec is None:
-            # Try to create agent on-demand
             state.log_event("AGENT_NOT_FOUND", {
                 "agent": step.agent,
-                "action": "attempting to create"
+                "action": "using system-agent as fallback"
             })
+            # Use system-agent as fallback
+            step.agent = "system-agent"
 
-            # For now, use system-agent as fallback
-            agent_spec = self.component_registry.get_agent("system-agent")
+        # Delegate using natural language (SDK handles routing to agent)
+        delegation_prompt = f"Use the {step.agent} agent to {step.description}"
 
-        # Delegate to agent using Claude Agent SDK
-        result = await self._delegate_to_agent(
-            agent_spec,
-            step.description,
-            project,
+        result = await self._delegate_with_client(
+            client,
+            delegation_prompt,
             state
         )
 
@@ -427,6 +460,65 @@ Be specific and actionable.
 
         return result
 
+    async def _delegate_with_client(
+        self,
+        client: ClaudeSDKClient,
+        delegation_prompt: str,
+        state: StateManager
+    ) -> Dict[str, Any]:
+        """
+        Delegate task using shared SDK client
+
+        The SDK routes to the appropriate agent based on natural language.
+        Example: "Use the code-reviewer agent to review src/types.py"
+
+        Args:
+            client: Shared ClaudeSDKClient with agents registered
+            delegation_prompt: Natural language delegation instruction
+            state: State manager
+
+        Returns:
+            Result dictionary
+        """
+        result_text_parts = []
+        cost_estimate = 0.0
+
+        try:
+            # Send delegation via SDK
+            await client.query(delegation_prompt)
+
+            # Collect response
+            async for msg in client.receive_response():
+                # Log activity
+                activity = self._get_activity_text(msg)
+                if activity:
+                    state.log_event("AGENT_ACTIVITY", {
+                        "activity": activity
+                    })
+
+                # Extract text from AssistantMessage
+                if hasattr(msg, "content"):
+                    for block in msg.content:
+                        if hasattr(block, "text"):
+                            result_text_parts.append(block.text)
+
+                # Get cost from ResultMessage
+                if hasattr(msg, "total_cost_usd") and msg.total_cost_usd:
+                    cost_estimate = msg.total_cost_usd
+
+            return {
+                "success": True,
+                "output": "\n".join(result_text_parts) if result_text_parts else "",
+                "cost": cost_estimate
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "cost": cost_estimate
+            }
+
     async def _delegate_to_agent(
         self,
         agent_spec: AgentSpec,
@@ -435,9 +527,13 @@ Be specific and actionable.
         state: StateManager
     ) -> Dict[str, Any]:
         """
-        Delegate task to specialized agent using Claude Agent SDK
+        DEPRECATED: Use _delegate_with_client instead
 
-        This follows the pattern from the chief_of_staff example.
+        Legacy method that creates a new SDK client per delegation.
+        Kept for backward compatibility but not used in orchestrate().
+
+        The new approach registers all agents upfront and uses
+        natural language delegation with a shared client.
 
         Args:
             agent_spec: Agent specification

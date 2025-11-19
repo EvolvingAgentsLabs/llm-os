@@ -257,11 +257,17 @@ class Dispatcher:
             import hashlib
             goal_signature = hashlib.sha256(goal.encode()).hexdigest()[:16]
 
+            # Get available agents to register in SDK
+            available_agents = None
+            if hasattr(self, 'orchestrator') and self.orchestrator:
+                available_agents = self.orchestrator.component_registry.list_agents()
+
             # Execute with SDK
             result = await self.sdk_client.execute_learner_mode(
                 goal=goal,
                 goal_signature=goal_signature,
                 project=project,
+                available_agents=available_agents,  # Pass all agents!
                 max_cost_usd=max_cost_usd
             )
 
