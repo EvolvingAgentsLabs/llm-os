@@ -338,6 +338,134 @@ async def example_8_cross_project_learning():
     await os.shutdown()
 
 
+async def example_9_sdk_hooks():
+    """Example 9: SDK Hooks System (Phase 2.5 NEW)"""
+    print("\n" + "=" * 60)
+    print("Example 9: SDK Hooks - Budget Control & Security")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=2.0)  # Low budget to demonstrate hooks
+    await os.boot()
+
+    print("\n🔌 SDK hooks are automatically enabled:")
+    print("   - Budget Control Hook (PreToolUse)")
+    print("   - Security Hook (PreToolUse)")
+    print("   - Trace Capture Hook (PostToolUse)")
+    print("   - Cost Tracking Hook (PostToolUse)")
+    print("   - Memory Injection Hook (UserPromptSubmit)")
+
+    # This task will trigger hooks
+    result = await os.execute(
+        "Create a simple Python function",
+        max_cost_usd=1.0  # Low budget to test budget control hook
+    )
+
+    print(f"\n✅ Execution with hooks:")
+    print(f"   Success: {result.get('success')}")
+    print(f"   Cost: ${result.get('cost', 0):.4f}")
+    print(f"   Hooks provided: budget control, security, trace capture")
+
+    await os.shutdown()
+
+
+async def example_10_streaming():
+    """Example 10: Streaming Support (Phase 2.5 NEW)"""
+    print("\n" + "=" * 60)
+    print("Example 10: Streaming with Partial Messages")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=10.0)
+    await os.boot()
+
+    # Define streaming callback
+    async def on_stream(event):
+        """Called for each streaming event"""
+        if hasattr(event, 'content'):
+            # Print partial content as it arrives
+            print(".", end="", flush=True)
+
+    print("\n📡 Executing with streaming enabled...")
+    print("Progress: ", end="", flush=True)
+
+    # Note: Streaming is opt-in via SDK client
+    # This example shows the structure, actual streaming would need
+    # to be enabled at the dispatcher level
+    result = await os.execute(
+        "Write a short poem about AI",
+        max_cost_usd=0.5
+    )
+
+    print("\n\n✅ Streaming result:")
+    print(f"   Success: {result.get('success')}")
+    print(f"   Output: {result.get('output', '')[:100]}...")
+
+    print("\nℹ️  Streaming provides real-time feedback during execution")
+
+    await os.shutdown()
+
+
+async def example_11_system_prompts():
+    """Example 11: System Prompt Presets (Phase 2.5 NEW)"""
+    print("\n" + "=" * 60)
+    print("Example 11: System Prompt Presets")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=10.0, project_name="prompt_demo")
+    await os.boot()
+
+    # Create agent with custom prompt
+    custom_agent = os.create_agent(
+        name="custom-agent",
+        agent_type="specialized",
+        category="custom",
+        description="Uses custom system prompt",
+        system_prompt="You are a helpful assistant focused on clarity.",
+        tools=["Read", "Write"]
+    )
+
+    print(f"\n✅ Created agent with custom prompt:")
+    print(f"   Name: {custom_agent.name}")
+    print(f"   Prompt type: Custom string")
+
+    # In the SDK client, we can also use presets:
+    # system_prompt = {"type": "preset", "preset": "claude_code", "append": "..."}
+    # This combines Claude Code's built-in prompt with custom instructions
+
+    print("\nℹ️  System prompt options:")
+    print("   1. Custom string: Direct prompt text")
+    print("   2. Preset: Use SDK presets like 'claude_code'")
+    print("   3. Preset + Append: Combine preset with custom instructions")
+
+    await os.shutdown()
+
+
+async def example_12_advanced_options():
+    """Example 12: Advanced ClaudeAgentOptions (Phase 2.5 NEW)"""
+    print("\n" + "=" * 60)
+    print("Example 12: Advanced SDK Options")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=10.0)
+    await os.boot()
+
+    print("\n⚙️  Available ClaudeAgentOptions fields:")
+    print("   - system_prompt: str or dict (preset)")
+    print("   - cwd: Working directory")
+    print("   - agents: Dict of AgentDefinitions")
+    print("   - permission_mode: 'default', 'acceptEdits', etc.")
+    print("   - hooks: Dict of hook callbacks")
+    print("   - model: 'sonnet', 'opus', 'haiku'")
+    print("   - max_turns: Maximum conversation turns")
+    print("   - env: Environment variables dict")
+    print("   - include_partial_messages: Enable streaming")
+
+    print("\n✅ All fields are now supported in LLMOSSDKClient")
+    print("   SDK client properly wraps ClaudeAgentOptions")
+    print("   Hooks are automatically configured for llmos")
+
+    await os.shutdown()
+
+
 async def main():
     """Run all examples"""
     print("\n" + "=" * 80)
@@ -351,15 +479,19 @@ async def main():
         ("Dynamic Agent Creation", example_4_agent_creation_on_demand),
         ("Memory Query Interface", example_5_memory_query),
         ("Complete Workflow", example_6_complete_workflow),
-        ("Claude SDK Memory (NEW)", example_7_sdk_memory),
-        ("Cross-Project Learning (NEW)", example_8_cross_project_learning),
+        ("Claude SDK Memory", example_7_sdk_memory),
+        ("Cross-Project Learning", example_8_cross_project_learning),
+        ("SDK Hooks System (NEW Phase 2.5)", example_9_sdk_hooks),
+        ("Streaming Support (NEW Phase 2.5)", example_10_streaming),
+        ("System Prompt Presets (NEW Phase 2.5)", example_11_system_prompts),
+        ("Advanced SDK Options (NEW Phase 2.5)", example_12_advanced_options),
     ]
 
     print("\nAvailable examples:")
     for i, (name, _) in enumerate(examples, 1):
         print(f"{i}. {name}")
 
-    print("\nSelect example (1-8) or 'all' to run all:")
+    print("\nSelect example (1-12) or 'all' to run all:")
     choice = input("> ").strip()
 
     if choice.lower() == 'all':

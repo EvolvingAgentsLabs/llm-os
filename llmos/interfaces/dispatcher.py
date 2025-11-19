@@ -78,7 +78,9 @@ class Dispatcher:
         if is_sdk_available():
             self.sdk_client = LLMOSSDKClient(
                 workspace=self.workspace,
-                trace_manager=self.trace_manager
+                trace_manager=self.trace_manager,
+                token_economy=self.token_economy,  # For budget control hooks
+                memory_query=self.memory_query  # For context injection hooks
             )
         else:
             print("⚠️  Claude Agent SDK not available - using fallback cortex mode")

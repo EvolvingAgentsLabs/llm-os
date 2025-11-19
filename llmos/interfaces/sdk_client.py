@@ -4,22 +4,24 @@ Proper integration with Claude Agent SDK for Learner and Orchestrator modes
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from datetime import datetime
 
 try:
     from claude_agent_sdk import ClaudeSDKClient, query as sdk_query, AgentDefinition
     from claude_agent_sdk.types import ClaudeAgentOptions, HookEvent, HookMatcher, Message
-    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock
+    from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, ToolUseBlock, StreamEvent
     SDK_AVAILABLE = True
 except ImportError:
     SDK_AVAILABLE = False
     AgentDefinition = None
+    StreamEvent = None
     print("Warning: claude-agent-sdk not installed. Install with: pip install claude-agent-sdk")
 
 from memory.traces_sdk import ExecutionTrace
 from kernel.project_manager import Project
 from kernel.agent_factory import AgentSpec
+from kernel.hooks import HookRegistry, create_default_hooks
 
 
 def agent_spec_to_definition(spec: AgentSpec) -> 'AgentDefinition':
@@ -118,14 +120,18 @@ class LLMOSSDKClient:
     Claude Agent SDK, handling:
     - Learner mode execution with trace capture
     - Orchestrator mode with multi-agent coordination
-    - Hook-based trace building
+    - Hook-based trace building and control flow
     - Project-aware execution
+    - System prompt presets
+    - Streaming support
     """
 
     def __init__(
         self,
         workspace: Path,
-        trace_manager: Optional[Any] = None
+        trace_manager: Optional[Any] = None,
+        token_economy: Optional[Any] = None,
+        memory_query: Optional[Any] = None
     ):
         """
         Initialize SDK client wrapper
@@ -133,6 +139,8 @@ class LLMOSSDKClient:
         Args:
             workspace: Workspace directory
             trace_manager: Optional trace manager for saving traces
+            token_economy: Optional TokenEconomy for budget control hooks
+            memory_query: Optional MemoryQueryInterface for context injection hooks
         """
         if not SDK_AVAILABLE:
             raise RuntimeError(
@@ -142,6 +150,8 @@ class LLMOSSDKClient:
 
         self.workspace = Path(workspace)
         self.trace_manager = trace_manager
+        self.token_economy = token_economy
+        self.memory_query = memory_query
 
     def _build_agent_options(
         self,
@@ -149,7 +159,13 @@ class LLMOSSDKClient:
         project: Optional[Project] = None,
         available_agents: Optional[List[AgentSpec]] = None,
         permission_mode: str = "default",
-        hooks: Optional[Dict[HookEvent, List[HookMatcher]]] = None
+        hooks: Optional[Dict[HookEvent, List[HookMatcher]]] = None,
+        use_preset: bool = False,
+        preset_name: str = "claude_code",
+        model: str = "sonnet",
+        max_turns: Optional[int] = None,
+        env: Optional[Dict[str, str]] = None,
+        include_partial_messages: bool = False
     ) -> ClaudeAgentOptions:
         """
         Build ClaudeAgentOptions from agent spec and project
@@ -160,6 +176,12 @@ class LLMOSSDKClient:
             available_agents: List of all available agents to register
             permission_mode: Permission mode for tools
             hooks: Optional hooks for events
+            use_preset: Use system prompt preset instead of custom prompt
+            preset_name: Preset name if using preset (e.g., "claude_code")
+            model: Model to use ("sonnet", "opus", "haiku")
+            max_turns: Maximum conversation turns
+            env: Environment variables
+            include_partial_messages: Enable streaming with partial messages
 
         Returns:
             ClaudeAgentOptions configured for llmos
@@ -167,9 +189,18 @@ class LLMOSSDKClient:
         # Determine working directory
         cwd = str(project.path) if project else str(self.workspace)
 
-        # Build system prompt (for primary agent)
-        system_prompt = None
-        if agent_spec:
+        # Build system prompt (support presets)
+        system_prompt: Optional[Union[str, Dict[str, Any]]] = None
+
+        if use_preset and agent_spec:
+            # Use preset with appended custom prompt
+            system_prompt = {
+                "type": "preset",
+                "preset": preset_name,
+                "append": agent_spec.system_prompt
+            }
+        elif agent_spec:
+            # Use custom prompt directly
             system_prompt = agent_spec.system_prompt
 
         # Register all available agents as AgentDefinitions
@@ -181,13 +212,25 @@ class LLMOSSDKClient:
                 except Exception as e:
                     print(f"Warning: Could not register agent {spec.name}: {e}")
 
-        return ClaudeAgentOptions(
-            system_prompt=system_prompt,
-            cwd=cwd,
-            agents=agents_dict,  # Register all agents!
-            permission_mode=permission_mode,
-            hooks=hooks or {}
-        )
+        # Build ClaudeAgentOptions with all fields
+        options_dict = {
+            "system_prompt": system_prompt,
+            "cwd": cwd,
+            "agents": agents_dict,
+            "permission_mode": permission_mode,
+            "hooks": hooks or {},
+            "model": model,
+            "include_partial_messages": include_partial_messages
+        }
+
+        # Add optional fields
+        if max_turns is not None:
+            options_dict["max_turns"] = max_turns
+
+        if env is not None:
+            options_dict["env"] = env
+
+        return ClaudeAgentOptions(**options_dict)
 
     async def execute_learner_mode(
         self,
@@ -196,7 +239,10 @@ class LLMOSSDKClient:
         agent_spec: Optional[AgentSpec] = None,
         project: Optional[Project] = None,
         available_agents: Optional[List[AgentSpec]] = None,
-        max_cost_usd: float = 5.0
+        max_cost_usd: float = 5.0,
+        enable_hooks: bool = True,
+        enable_streaming: bool = False,
+        streaming_callback: Optional[callable] = None
     ) -> Dict[str, Any]:
         """
         Execute goal in Learner mode using Claude SDK
@@ -211,18 +257,37 @@ class LLMOSSDKClient:
             project: Optional project context
             available_agents: List of all available agents to register
             max_cost_usd: Maximum cost budget
+            enable_hooks: Enable default hooks (budget, security, trace capture)
+            enable_streaming: Enable streaming with partial messages
+            streaming_callback: Optional callback for streaming events
 
         Returns:
             Result dictionary with trace and execution details
         """
         trace_builder = TraceBuilder(goal)
 
-        # Build SDK options with all available agents
+        # Create hooks if enabled
+        sdk_hooks = {}
+        if enable_hooks:
+            hook_registry = create_default_hooks(
+                token_economy=self.token_economy,
+                workspace=self.workspace,
+                trace_builder=trace_builder,
+                memory_query=self.memory_query,
+                max_cost_usd=max_cost_usd
+            )
+            sdk_hooks = hook_registry.to_sdk_hooks()
+
+            print(f"🔌 Enabled {len(sdk_hooks)} hook types")
+
+        # Build SDK options with all available agents and hooks
         options = self._build_agent_options(
             agent_spec=agent_spec,
             project=project,
             available_agents=available_agents,  # Register all agents!
-            permission_mode="acceptEdits"  # Auto-accept edits in Learner mode
+            permission_mode="acceptEdits",  # Auto-accept edits in Learner mode
+            hooks=sdk_hooks,
+            include_partial_messages=enable_streaming
         )
 
         result = {
@@ -241,6 +306,14 @@ class LLMOSSDKClient:
 
                 # Receive all messages
                 async for message in client.receive_response():
+                    # Handle streaming events
+                    if enable_streaming and isinstance(message, StreamEvent):
+                        if streaming_callback:
+                            await streaming_callback(message)
+                        # StreamEvent doesn't contribute to trace
+                        continue
+
+                    # Build trace from regular messages
                     trace_builder.add_message(message)
 
                     # Check cost budget

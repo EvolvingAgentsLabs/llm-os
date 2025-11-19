@@ -127,6 +127,7 @@ llmos/
 │   ├── scheduler.py            # Async scheduler
 │   ├── watchdog.py             # LLM monitoring
 │   ├── token_economy.py        # Budget management
+│   ├── hooks.py                # SDK hooks system (Phase 2.5)
 │   ├── project_manager.py      # Project organization (Phase 2)
 │   ├── agent_factory.py        # Dynamic agent creation (Phase 2)
 │   ├── component_registry.py   # Agent/component discovery (Phase 2)
@@ -391,6 +392,122 @@ await os.execute(
 # 3. Coordinate execution
 # 4. Synthesize results
 ```
+
+## Phase 2.5 Features (LATEST)
+
+### 6. SDK Hooks System
+
+Event-based control flow for budget control, security, and tracing:
+
+```python
+# Hooks are automatically enabled in Learner mode
+result = await os.execute(
+    "Create a Python script",
+    max_cost_usd=1.0  # Budget hook ensures cost < limit
+)
+```
+
+**Available Hooks:**
+- **PreToolUse**: Budget control, security checks
+- **PostToolUse**: Trace capture, cost tracking
+- **UserPromptSubmit**: Context injection from memory
+
+**Features**:
+```python
+# Budget Control Hook
+- Estimates cost per operation
+- Denies expensive operations if budget low
+- Prevents runaway costs
+
+# Security Hook
+- Blocks dangerous Bash commands (rm -rf /, curl | bash, etc.)
+- Prevents file operations outside workspace
+- Enforces security policies
+
+# Trace Capture Hook
+- Records tool usage automatically
+- Builds execution traces for Follower mode
+- Captures outputs and errors
+
+# Memory Injection Hook
+- Injects relevant past experiences before execution
+- Finds similar tasks from memory
+- Provides context for better results
+```
+
+**Implementation**: All hooks defined in `kernel/hooks.py` and integrated via `LLMOSSDKClient`.
+
+### 7. System Prompt Presets
+
+Use Claude SDK's built-in presets or custom prompts:
+
+```python
+# Option 1: Custom prompt
+agent = os.create_agent(
+    name="custom-agent",
+    system_prompt="You are a helpful assistant..."
+)
+
+# Option 2: SDK preset (via SDK client)
+# system_prompt = {
+#     "type": "preset",
+#     "preset": "claude_code",
+#     "append": "Additional instructions..."
+# }
+```
+
+**Supported Presets:**
+- `claude_code`: Optimized for coding tasks
+- Custom presets can be added
+
+**Benefits:**
+- Leverage Claude's optimized prompts
+- Append custom instructions to presets
+- Consistent behavior across tasks
+
+### 8. Streaming Support
+
+Real-time feedback during execution with partial messages:
+
+```python
+# Define streaming callback
+async def on_stream(event):
+    print(".", end="", flush=True)
+
+# Execute with streaming (via SDK client options)
+# include_partial_messages=True enables streaming
+result = await sdk_client.execute_learner_mode(
+    goal="Write a long document",
+    enable_streaming=True,
+    streaming_callback=on_stream
+)
+```
+
+**Features:**
+- Real-time progress updates
+- Partial message streaming
+- StreamEvent handling
+- Non-blocking execution feedback
+
+### 9. Advanced ClaudeAgentOptions
+
+Full control over SDK behavior:
+
+```python
+options = ClaudeAgentOptions(
+    system_prompt="...",              # String or preset dict
+    cwd="/path/to/workspace",         # Working directory
+    agents={...},                     # AgentDefinitions dict
+    permission_mode="acceptEdits",    # Permission level
+    hooks={...},                      # Hook callbacks
+    model="sonnet",                   # "sonnet", "opus", "haiku"
+    max_turns=10,                     # Max conversation turns
+    env={"KEY": "value"},            # Environment variables
+    include_partial_messages=True     # Enable streaming
+)
+```
+
+**All fields now supported** in `LLMOSSDKClient._build_agent_options()`.
 
 ## Future Enhancements
 
