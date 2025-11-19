@@ -242,6 +242,102 @@ async def example_6_complete_workflow():
     await os.shutdown()
 
 
+async def example_7_sdk_memory():
+    """Example 7: Claude SDK Memory System (Phase 2 Enhancement)"""
+    print("\n" + "=" * 60)
+    print("Example 7: Claude SDK Memory")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=10.0)
+    await os.boot()
+
+    # The memory query interface uses Claude SDK file-based memory
+    # Let's search for similar tasks using keyword matching
+    print("\n🔍 Searching for tasks similar to 'analyze CSV data'...")
+
+    similar_tasks = await os.memory_query.find_similar_tasks(
+        goal="analyze CSV data",
+        limit=5,
+        min_confidence=0.7
+    )
+
+    print(f"\n✅ Found {len(similar_tasks)} similar tasks:")
+    for i, task in enumerate(similar_tasks, 1):
+        print(f"   {i}. {task.goal_text[:60]}...")
+        print(f"      Success: {task.success_rating:.0%}, Used: {task.usage_count} times")
+
+    # Show memory statistics
+    mem_stats = os.memory_query.get_memory_statistics()
+    print(f"\n💾 Memory Statistics:")
+    print(f"   Total traces: {mem_stats.get('total_traces', 0)}")
+    print(f"   High-confidence: {mem_stats.get('high_confidence_count', 0)}")
+    print(f"   Facts stored: {mem_stats.get('facts_count', 0)}")
+    print(f"   Insights: {mem_stats.get('insights_count', 0)}")
+
+    await os.shutdown()
+
+
+async def example_8_cross_project_learning():
+    """Example 8: Cross-project learning insights (Phase 2 Enhancement)"""
+    print("\n" + "=" * 60)
+    print("Example 8: Cross-Project Learning")
+    print("=" * 60)
+
+    os = LLMOS(budget_usd=10.0)
+    await os.boot()
+
+    # Get common patterns across projects
+    print("\n🌐 Analyzing common patterns across projects...")
+
+    patterns = await os.get_cross_project_insights(
+        min_projects=2,
+        min_confidence=0.7
+    )
+
+    print(f"\n✅ Found {len(patterns)} cross-project patterns:")
+    for pattern in patterns[:5]:  # Show top 5
+        print(f"\n   📊 {pattern.title}")
+        print(f"      Type: {pattern.insight_type}")
+        print(f"      Projects: {', '.join(pattern.projects_involved)}")
+        print(f"      Impact: {pattern.impact}")
+        print(f"      Recommendation: {pattern.recommendation}")
+
+    # Get reusable agent patterns
+    print("\n\n🤖 Identifying reusable agent patterns...")
+
+    reusable_agents = await os.get_reusable_agents(
+        min_success_rate=0.8,
+        min_usage_count=3
+    )
+
+    print(f"\n✅ Found {len(reusable_agents)} reusable agent patterns:")
+    for agent in reusable_agents[:3]:  # Show top 3
+        print(f"\n   🔧 {agent.agent_name}")
+        print(f"      Category: {agent.category}")
+        print(f"      Success Rate: {agent.success_rate:.0%}")
+        print(f"      Usage: {agent.usage_count} times across {len(agent.projects_used)} projects")
+        print(f"      Recommended for: {', '.join(agent.recommended_for)}")
+
+    # Get project learning summary
+    projects = os.list_projects()
+    if projects:
+        print(f"\n\n📚 Learning Summary for '{projects[0].name}'...")
+        summary = await os.get_project_summary(projects[0].name)
+
+        print(f"\n✅ Project Stats:")
+        print(f"   Total executions: {summary['total_executions']}")
+        print(f"   Average success: {summary['avg_success_rate']:.0%}")
+        print(f"   Total cost: ${summary['total_cost']:.2f}")
+        print(f"   High-confidence traces: {summary['high_confidence_traces']}")
+
+        if summary['top_patterns']:
+            print(f"\n   Top patterns:")
+            for p in summary['top_patterns']:
+                print(f"      - {p['type']}: {p['count']} times")
+
+    await os.shutdown()
+
+
 async def main():
     """Run all examples"""
     print("\n" + "=" * 80)
@@ -255,13 +351,15 @@ async def main():
         ("Dynamic Agent Creation", example_4_agent_creation_on_demand),
         ("Memory Query Interface", example_5_memory_query),
         ("Complete Workflow", example_6_complete_workflow),
+        ("Claude SDK Memory (NEW)", example_7_sdk_memory),
+        ("Cross-Project Learning (NEW)", example_8_cross_project_learning),
     ]
 
     print("\nAvailable examples:")
     for i, (name, _) in enumerate(examples, 1):
         print(f"{i}. {name}")
 
-    print("\nSelect example (1-6) or 'all' to run all:")
+    print("\nSelect example (1-8) or 'all' to run all:")
     choice = input("> ").strip()
 
     if choice.lower() == 'all':

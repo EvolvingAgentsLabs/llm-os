@@ -44,7 +44,7 @@ economy.check_budget(estimated_cost=0.50)  # Raises LowBatteryError if insuffici
 economy.deduct(actual_cost=0.45, operation="Learn: Create Python script")
 ```
 
-### Learner-Follower Pattern
+### Learner-Follower-Orchestrator Pattern
 
 The key innovation that makes the OS economical:
 
@@ -59,6 +59,13 @@ The key innovation that makes the OS economical:
 - Cost: $0 (pure Python)
 - Speed: Fast (0.1-1s)
 
+**Orchestrator Mode** (Phase 2 NEW):
+- Multi-agent coordination for complex tasks
+- Dynamic agent creation on-demand
+- Project-based organization
+- Cost: Variable based on subtasks
+- Speed: Variable (depends on complexity)
+
 **Dispatcher Logic**:
 ```
 User Request → Query Trace Memory
@@ -66,7 +73,10 @@ User Request → Query Trace Memory
   Found High-Confidence Trace?
   ↓
   YES → Follower Mode ($0)
-  NO  → Learner Mode ($0.50) → Save New Trace
+  NO  → Check Complexity
+        ↓
+        Complex (multi-step)? → Orchestrator Mode
+        Simple? → Learner Mode ($0.50) → Save New Trace
 ```
 
 ## Installation
@@ -103,24 +113,42 @@ python boot.py "Analyze data in workspace/data.csv"
 
 ```
 llmos/
-├── boot.py                  # Entry point - main OS loop
-├── kernel/                  # Somatic layer
-│   ├── bus.py              # Event bus (pub/sub)
-│   ├── scheduler.py        # Async scheduler
-│   ├── watchdog.py         # LLM monitoring
-│   └── token_economy.py    # Budget management
-├── memory/                  # Storage layer
-│   ├── store.py            # Semantic memory (L4)
-│   └── traces.py           # Execution traces (L3)
-├── interfaces/              # Cortex layer
-│   ├── cortex.py           # LLM interface (Claude Agent SDK)
-│   └── dispatcher.py       # Learner/Follower router
-├── plugins/                 # Extensible tools
-│   ├── __init__.py         # Plugin loader
-│   └── example_tools.py    # Example tools
-└── workspace/              # Runtime workspace
-    └── memory/             # Persistent memory
-        └── traces/         # Execution trace storage
+├── boot.py                      # Entry point - main OS loop
+├── kernel/                      # Somatic layer
+│   ├── bus.py                  # Event bus (pub/sub)
+│   ├── scheduler.py            # Async scheduler
+│   ├── watchdog.py             # LLM monitoring
+│   ├── token_economy.py        # Budget management
+│   ├── project_manager.py      # Project organization (Phase 2)
+│   ├── agent_factory.py        # Dynamic agent creation (Phase 2)
+│   ├── component_registry.py   # Agent/component discovery (Phase 2)
+│   └── state_manager.py        # Execution state tracking (Phase 2)
+├── memory/                      # Storage layer
+│   ├── sdk_memory.py           # Claude SDK Memory Tool wrapper
+│   ├── store_sdk.py            # File-based memory store (L4)
+│   ├── traces_sdk.py           # Execution traces in markdown (L3)
+│   ├── query_sdk.py            # Memory query interface (keyword-based)
+│   ├── cross_project_sdk.py   # Cross-project insights (file-based)
+│   ├── store.py                # Legacy store (backup)
+│   └── traces.py               # Legacy traces (backup)
+├── interfaces/                  # Cortex layer
+│   ├── cortex.py               # LLM interface (Claude Agent SDK)
+│   ├── dispatcher.py           # 3-mode router (Learner/Follower/Orchestrator)
+│   └── orchestrator.py         # Multi-agent coordination (Phase 2)
+├── plugins/                     # Extensible tools
+│   ├── __init__.py             # Plugin loader
+│   └── example_tools.py        # Example tools
+├── examples/                    # Usage examples
+│   └── multi_agent_example.py  # Phase 2 examples
+└── workspace/                   # Runtime workspace
+    └── memories/               # Claude SDK memory structure
+        ├── traces/            # Execution traces (markdown)
+        ├── projects/          # Project-specific memory
+        │   └── {project}/
+        │       └── traces/    # Project traces
+        ├── sessions/          # Session context
+        ├── facts/             # Long-term facts
+        └── insights/          # Extracted insights
 ```
 
 ## Creating Plugins
@@ -205,14 +233,135 @@ await os.execute("Create a REST API with FastAPI")
 await os.execute("Summarize papers on quantum ML from arxiv")
 ```
 
+## Phase 2 Features (NEW)
+
+### 1. Claude SDK Memory Integration
+
+File-based memory system aligned with Claude Agent SDK conventions:
+
+```python
+# Memory stored in /memories directory with SDK structure
+similar_tasks = await os.memory_query.find_similar_tasks(
+    goal="analyze CSV data",
+    limit=5,
+    min_confidence=0.7
+)
+```
+
+**Memory Structure**:
+```
+/memories/
+    traces/         # Execution traces (markdown)
+    projects/       # Project-specific memory
+    sessions/       # Session context
+    facts/          # Long-term facts
+    insights/       # Extracted insights
+```
+
+**Benefits**:
+- Fast keyword-based search (no dependencies)
+- Human-readable markdown format
+- Compatible with Claude Agent SDK conventions
+- Easy to inspect and edit manually
+- Simple file-based architecture
+
+### 2. Cross-Project Learning
+
+Extract insights across project boundaries:
+
+```python
+# Analyze patterns across all projects
+patterns = await os.get_cross_project_insights()
+
+# Identify reusable agent patterns
+reusable_agents = await os.get_reusable_agents()
+
+# Get project-specific summary
+summary = await os.get_project_summary("my_project")
+```
+
+**Features**:
+- Common pattern detection across projects
+- Reusable agent identification
+- Success strategy extraction
+- Cost optimization insights
+- Anti-pattern detection
+
+### 3. Project Management
+
+Organize work into projects with isolated memory and agents:
+
+```python
+# Create a project
+project = os.create_project("data_analysis", "Analyze customer data")
+
+# Execute within project context
+await os.execute(
+    "Analyze sales trends",
+    project_name="data_analysis"
+)
+
+# List all projects
+projects = os.list_projects()
+```
+
+**Structure**:
+```
+workspace/
+  projects/
+    my_project/
+      components/    # Project-specific agents
+      memory/        # Project memory traces
+      output/        # Generated files
+      state/         # Execution state
+```
+
+### 4. Dynamic Agent Creation
+
+Create specialized agents on-demand:
+
+```python
+# Create a specialized agent
+analyst = os.create_agent(
+    name="data-analyst-agent",
+    category="data_analysis",
+    description="Analyzes CSV data files",
+    system_prompt="You are a data analysis specialist...",
+    tools=["Read", "Write", "Bash"],
+    capabilities=["CSV analysis", "Statistics"],
+    constraints=["Max 100MB files"]
+)
+
+# List all agents
+agents = os.list_agents()
+```
+
+### 5. Multi-Agent Orchestration
+
+Coordinate multiple agents for complex tasks:
+
+```python
+# Complex goal triggers orchestration
+await os.execute(
+    "Research quantum computing trends and create a summary report",
+    mode="ORCHESTRATOR"
+)
+
+# Orchestrator will:
+# 1. Break down into subtasks
+# 2. Create/select specialized agents
+# 3. Coordinate execution
+# 4. Synthesize results
+```
+
 ## Future Enhancements
 
-1. **Better Embeddings**: Replace simple hash with sentence-transformers
-2. **Semantic Trace Matching**: Fuzzy goal matching, not just exact
-3. **Trace Evolution**: Traces improve over time with feedback
-4. **Multi-Model**: Support multiple LLMs (Opus, Haiku, local models)
-5. **Distributed**: Run on multiple machines
-6. **GUI**: Web interface for OS control
+1. **Trace Evolution**: Traces improve over time with feedback
+2. **Multi-Model**: Support multiple LLMs (Opus, Haiku, local models)
+3. **Distributed**: Run on multiple machines
+4. **GUI**: Web interface for OS control
+5. **Agent Marketplace**: Share and discover reusable agents
+6. **Advanced Orchestration**: Parallel agent execution, dependencies
 
 ## Design Principles
 

@@ -1,15 +1,16 @@
 """
-Memory Query Interface - Semantic search and pattern recognition
-Enables intelligent memory consultation like llmunix
+Memory Query Interface - SDK-based Implementation
+Keyword-based search without embeddings, using SDK memory
+
+Provides intelligent memory consultation using file-based search.
 """
 
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-from datetime import datetime
 
-from memory.traces import TraceManager, ExecutionTrace
-from memory.store import MemoryStore
+from memory.traces_sdk import TraceManager, ExecutionTrace
+from memory.store_sdk import MemoryStore
 
 
 @dataclass
@@ -34,10 +35,12 @@ class FailurePattern:
 
 class MemoryQueryInterface:
     """
-    Memory Query Interface - Intelligent memory consultation
+    SDK-based Memory Query Interface
 
-    Provides semantic search over past executions, pattern recognition,
-    and recommendations based on historical performance.
+    Provides keyword-based search over past executions,
+    pattern recognition, and recommendations.
+
+    No embeddings - uses fast file-based keyword matching.
     """
 
     def __init__(
@@ -49,8 +52,8 @@ class MemoryQueryInterface:
         Initialize Memory Query Interface
 
         Args:
-            trace_manager: Trace manager (L3 storage)
-            memory_store: Memory store (L4 storage)
+            trace_manager: Trace manager (SDK-based)
+            memory_store: Memory store (SDK-based)
         """
         self.trace_manager = trace_manager
         self.memory_store = memory_store
@@ -62,9 +65,7 @@ class MemoryQueryInterface:
         min_confidence: float = 0.7
     ) -> List[ExecutionTrace]:
         """
-        Find similar past executions
-
-        Uses both exact matching and (future) semantic similarity.
+        Find similar past executions using keyword matching
 
         Args:
             goal: Goal to search for
@@ -74,34 +75,15 @@ class MemoryQueryInterface:
         Returns:
             List of similar ExecutionTrace instances
         """
-        # Get all traces
-        all_traces = self.trace_manager.list_traces()
-
-        # Filter by confidence
-        traces = [
-            t for t in all_traces
-            if t.success_rating >= min_confidence
-        ]
-
-        # TODO: Implement semantic similarity scoring
-        # For now, use simple keyword matching
-
-        goal_words = set(goal.lower().split())
-        scored_traces = []
-
-        for trace in traces:
-            trace_words = set(trace.goal_text.lower().split())
-            overlap = len(goal_words & trace_words)
-            similarity = overlap / len(goal_words) if goal_words else 0.0
-
-            if similarity > 0:
-                scored_traces.append((similarity, trace))
-
-        # Sort by similarity
-        scored_traces.sort(key=lambda x: x[0], reverse=True)
+        # Use trace manager's keyword search
+        traces = self.trace_manager.search_traces(
+            query=goal,
+            limit=limit * 2,  # Get more for filtering
+            min_confidence=min_confidence
+        )
 
         # Return top results
-        return [trace for _, trace in scored_traces[:limit]]
+        return traces[:limit]
 
     async def get_recommendations(
         self,
@@ -155,7 +137,7 @@ class MemoryQueryInterface:
         Analyze failure patterns across executions
 
         Args:
-            pattern: Optional pattern to filter (e.g., "timeout", "tool_error")
+            pattern: Optional pattern to filter
 
         Returns:
             List of FailurePattern instances
@@ -175,10 +157,6 @@ class MemoryQueryInterface:
             return []
 
         # Group by common patterns
-        # TODO: Implement more sophisticated pattern detection
-        # For now, simple categorization
-
-        # Pattern 1: Multiple failed attempts at same goal
         goal_failures: Dict[str, List[ExecutionTrace]] = {}
         for trace in failed_traces:
             key = trace.goal_text[:50]  # First 50 chars as key
@@ -263,7 +241,7 @@ class MemoryQueryInterface:
             insights.append(MemoryInsight(
                 insight_type="pattern",
                 description="Recent activity focused on: " +
-                           ", ".join(set(t.goal_text.split()[0] for t in recent_traces[:5])),
+                           ", ".join(set(t.goal_text.split()[0] for t in recent_traces[:5] if t.goal_text)),
                 evidence=[f"Last 10 executions analyzed"],
                 confidence=0.7,
                 relevance=0.8
@@ -358,24 +336,14 @@ class MemoryQueryInterface:
         Returns:
             Dictionary with memory stats
         """
-        all_traces = self.trace_manager.list_traces()
+        # Get trace statistics
+        trace_stats = self.trace_manager.get_statistics()
 
-        if not all_traces:
-            return {
-                "total_traces": 0,
-                "avg_success_rate": 0.0,
-                "total_executions": 0,
-                "high_confidence_traces": 0
-            }
-
-        total_executions = sum(t.usage_count for t in all_traces)
-        avg_success = sum(t.success_rating for t in all_traces) / len(all_traces)
-        high_confidence = len([t for t in all_traces if t.success_rating >= 0.9])
+        # Get store statistics
+        store_stats = self.memory_store.get_statistics()
 
         return {
-            "total_traces": len(all_traces),
-            "avg_success_rate": avg_success,
-            "total_executions": total_executions,
-            "high_confidence_traces": high_confidence,
-            "follower_mode_available": high_confidence > 0
+            **trace_stats,
+            **store_stats,
+            "follower_mode_available": trace_stats["high_confidence_count"] > 0
         }
