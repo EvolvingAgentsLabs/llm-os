@@ -17,6 +17,8 @@ class EventType(Enum):
     TOOL_OUTPUT = "tool_output"
     INTERRUPT = "interrupt"
     TIMER = "timer"
+    TASK_STARTED = "task_started"
+    TASK_COMPLETED = "task_completed"
 
 
 @dataclass

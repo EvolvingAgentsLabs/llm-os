@@ -10,6 +10,11 @@ import sys
 from pathlib import Path
 import argparse
 from datetime import datetime
+import os
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "llmos"))
@@ -77,15 +82,15 @@ class DemoApp:
         console.print("\n[bold cyan]Select a demo scenario:[/bold cyan]\n")
 
         scenarios = [
-            ("1", "Data Processing Pipeline", "Multi-agent orchestration for data workflows"),
-            ("2", "Code Generation Workflow", "Learn-once, execute-free pattern"),
-            ("3", "Research Assistant", "Complex research and reporting task"),
-            ("4", "DevOps Automation", "Automated deployment and monitoring"),
-            ("5", "Cross-Project Learning", "Learning insights across projects"),
-            ("6", "Cost Optimization Demo", "Demonstrate Learner → Follower savings"),
-            ("7", "SDK Hooks Demo", "Budget control and security hooks"),
-            ("8", "Run All Scenarios", "Execute all demos sequentially"),
-            ("9", "View System Stats", "Show traces, agents, and memory"),
+            ("1", "Data Processing Pipeline", "Multi-agent orchestration ✅"),
+            ("2", "Code Generation Workflow", "Learn-once, execute-free ✅"),
+            ("3", "Research Assistant", "Complex orchestration ⚠️ (Has timeouts)"),
+            ("4", "DevOps Automation", "Automated deployment ✅"),
+            ("5", "Cross-Project Learning", "Learning insights ✅"),
+            ("6", "Cost Optimization Demo", "Dramatic cost savings ✅"),
+            ("7", "SDK Hooks Demo", "Budget control & security ✅"),
+            ("8", "Run All Scenarios", "Execute all demos ⚠️ (Includes #3)"),
+            ("9", "View System Stats", "Show traces, agents, memory ✅"),
             ("0", "Exit", "Exit demo application")
         ]
 
@@ -239,12 +244,15 @@ class DemoApp:
         """Scenario 3: Research Assistant"""
         console.print(Panel(
             "[bold yellow]Scenario 3: Research Assistant[/bold yellow]\n\n"
+            "⚠️  [bold red]Note: This scenario has known timeout issues[/bold red]\n\n"
             "Demonstrates complex multi-step orchestration:\n"
             "1. Research agent gathers information\n"
-            "2. Synthesis agent analyzes findings\n"
-            "3. Technical writer creates comprehensive report\n\n"
+            "2. Technical writer creates comprehensive report\n\n"
             "[bold]Mode:[/bold] Orchestrator\n"
-            "[bold]Estimated Cost:[/bold] $2.50",
+            "[bold]Actual Cost:[/bold] $0.30-0.50 (due to timeouts)\n"
+            "[bold]Duration:[/bold] 10-16 minutes (with timeout warnings)\n"
+            "[bold]Status:[/bold] ⚠️  Partially working - some delegations timeout\n\n"
+            "[yellow]Recommendation: Try Data Pipeline (Scenario 1) for reliable multi-agent demo[/yellow]",
             border_style="yellow"
         ))
 
@@ -259,10 +267,18 @@ class DemoApp:
             agent_type="specialized",
             category="research",
             description="Researches topics and gathers information",
-            system_prompt="You are a research specialist. Find and gather relevant information.",
-            tools=["WebSearch", "Read", "Write"],
+            system_prompt="""You are a research specialist. Find and gather relevant information.
+
+IMPORTANT CONSTRAINTS:
+- Limit web searches to 2-3 targeted queries maximum
+- Focus on recent, authoritative sources
+- Synthesize findings quickly - don't over-research
+- Write findings directly to a file instead of returning large amounts of text
+- If information gathering takes >30 seconds, save what you have and move on
+- Prioritize breadth over depth for initial research""",
+            tools=["WebSearch", "WebFetch", "Read", "Write"],
             capabilities=["Web research", "Information gathering", "Source evaluation"],
-            constraints=["Credible sources only"]
+            constraints=["Credible sources only", "Maximum 3 web searches per task", "Save findings to files"]
         )
 
         writer = self.os.create_agent(

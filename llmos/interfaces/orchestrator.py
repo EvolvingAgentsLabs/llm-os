@@ -166,13 +166,18 @@ class SystemAgent:
                             description=agent.description,
                             prompt=agent.system_prompt,
                             tools=agent.tools,
-                            model="sonnet"
+                            model="claude-sonnet-4-5-20250929"  # Use proper model identifier
                         )
+                        state.log_event("AGENT_REGISTERED", {
+                            "agent": agent.name,
+                            "tools": agent.tools
+                        })
                     except Exception as e:
                         state.log_event("AGENT_REGISTRATION_FAILED", {
                             "agent": agent.name,
                             "error": str(e)
                         })
+                        print(f"[WARNING] Failed to register agent {agent.name}: {e}")
 
             # Step 3: Create shared SDK client with all agents
             options = ClaudeAgentOptions(
@@ -245,7 +250,15 @@ class SystemAgent:
             )
 
         except Exception as e:
-            state.log_event("ORCHESTRATION_FAILED", {"error": str(e)})
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"\n[ERROR] Orchestration failed:")
+            print(error_details)
+
+            state.log_event("ORCHESTRATION_FAILED", {
+                "error": str(e),
+                "traceback": error_details
+            })
             state.mark_execution_complete(success=False)
 
             execution_time = time.time() - start_time
@@ -271,7 +284,7 @@ class SystemAgent:
             Memory insights
         """
         # Find similar traces
-        trace = self.trace_manager.find_trace(goal, confidence_threshold=0.7)
+        trace = self.trace_manager.find_trace(goal, min_confidence=0.7)
 
         insights = {
             "similar_trace_found": trace is not None,
@@ -341,6 +354,7 @@ Format your response as JSON:
             model=self.model,
             cwd=str(project.root_path),
             allowed_tools=["Read", "Write", "Grep", "Glob"],
+            permission_mode="acceptEdits",  # Auto-accept to avoid hanging
             system_prompt={
                 "type": "preset",
                 "preset": "claude_code",
@@ -464,7 +478,8 @@ Be specific and actionable.
         self,
         client: ClaudeSDKClient,
         delegation_prompt: str,
-        state: StateManager
+        state: StateManager,
+        timeout_seconds: float = 300.0  # 5 minute timeout
     ) -> Dict[str, Any]:
         """
         Delegate task using shared SDK client
@@ -476,6 +491,7 @@ Be specific and actionable.
             client: Shared ClaudeSDKClient with agents registered
             delegation_prompt: Natural language delegation instruction
             state: State manager
+            timeout_seconds: Timeout in seconds (default 300s/5min)
 
         Returns:
             Result dictionary
@@ -483,28 +499,117 @@ Be specific and actionable.
         result_text_parts = []
         cost_estimate = 0.0
 
+        print(f"\n[DEBUG] Starting delegation: {delegation_prompt[:100]}...")
+        state.log_event("DELEGATION_STARTED", {
+            "prompt": delegation_prompt[:200]
+        })
+
         try:
             # Send delegation via SDK
+            print(f"[DEBUG] Sending query to SDK...")
             await client.query(delegation_prompt)
+            print(f"[DEBUG] Query sent, waiting for response...")
 
-            # Collect response
-            async for msg in client.receive_response():
-                # Log activity
-                activity = self._get_activity_text(msg)
-                if activity:
-                    state.log_event("AGENT_ACTIVITY", {
-                        "activity": activity
-                    })
+            # Collect response with timeout and inactivity detection
+            async def collect_responses():
+                nonlocal result_text_parts, cost_estimate
+                message_count = 0
+                last_message_time = asyncio.get_event_loop().time()
+                inactivity_timeout = 60.0  # 60 seconds of no messages = likely stuck
+                stop_iteration = False
 
-                # Extract text from AssistantMessage
-                if hasattr(msg, "content"):
-                    for block in msg.content:
-                        if hasattr(block, "text"):
-                            result_text_parts.append(block.text)
+                async def message_iterator():
+                    """Wrapper to track last message time"""
+                    nonlocal last_message_time, message_count, stop_iteration
+                    try:
+                        async for msg in client.receive_response():
+                            if stop_iteration:
+                                break
+                            last_message_time = asyncio.get_event_loop().time()
+                            message_count += 1
+                            yield msg
+                    except asyncio.CancelledError:
+                        print(f"[DEBUG] Message iterator cancelled")
+                        raise
 
-                # Get cost from ResultMessage
-                if hasattr(msg, "total_cost_usd") and msg.total_cost_usd:
-                    cost_estimate = msg.total_cost_usd
+                async def inactivity_checker():
+                    """Check for inactivity and stop iteration if stuck"""
+                    nonlocal stop_iteration
+                    try:
+                        while True:
+                            await asyncio.sleep(5.0)  # Check every 5 seconds
+                            time_since_last = asyncio.get_event_loop().time() - last_message_time
+                            if time_since_last > inactivity_timeout:
+                                print(f"[WARNING] No messages for {time_since_last:.1f}s - stopping delegation")
+                                stop_iteration = True
+                                raise asyncio.TimeoutError(f"Inactivity timeout: no messages for {time_since_last:.1f}s")
+                    except asyncio.CancelledError:
+                        # Expected when we're shutting down
+                        pass
+
+                # Run both the message iterator and inactivity checker concurrently
+                inactivity_task = asyncio.create_task(inactivity_checker())
+                iteration_error = None
+
+                try:
+                    async for msg in message_iterator():
+                        print(f"[DEBUG] Received message {message_count}: {type(msg).__name__}")
+
+                        # Log activity
+                        activity = self._get_activity_text(msg)
+                        if activity:
+                            print(f"[DEBUG] Activity: {activity}")
+                            state.log_event("AGENT_ACTIVITY", {
+                                "activity": activity
+                            })
+
+                        # Extract text from AssistantMessage
+                        if hasattr(msg, "content"):
+                            for block in msg.content:
+                                if hasattr(block, "text"):
+                                    result_text_parts.append(block.text)
+                                    print(f"[DEBUG] Extracted text: {block.text[:100]}...")
+
+                        # Get cost from ResultMessage and break (delegation complete)
+                        if hasattr(msg, "total_cost_usd"):
+                            cost_estimate = msg.total_cost_usd or 0.0
+                            print(f"[DEBUG] Cost: ${cost_estimate:.4f}")
+
+                        # Break on ResultMessage (indicates completion)
+                        if "Result" in msg.__class__.__name__:
+                            print(f"[DEBUG] ResultMessage received - delegation complete")
+                            break  # Exit loop when ResultMessage is received
+                except asyncio.TimeoutError as e:
+                    # Capture inactivity timeout for re-raising
+                    iteration_error = e
+                    print(f"[DEBUG] Caught inactivity timeout in message loop")
+                finally:
+                    # Cancel inactivity checker
+                    inactivity_task.cancel()
+                    try:
+                        await inactivity_task
+                    except asyncio.CancelledError:
+                        pass
+                    except asyncio.TimeoutError as e:
+                        # Capture any timeout from the checker
+                        if iteration_error is None:
+                            iteration_error = e
+
+                print(f"[DEBUG] Finished collecting responses. Total messages: {message_count}")
+
+                # Re-raise inactivity timeout if it occurred
+                if iteration_error:
+                    raise iteration_error
+
+            # Apply timeout
+            await asyncio.wait_for(collect_responses(), timeout=timeout_seconds)
+
+            print(f"[DEBUG] Delegation completed successfully")
+            state.log_event("DELEGATION_COMPLETED", {
+                "success": True,
+                "cost": cost_estimate,
+                "result_length": len("".join(result_text_parts))
+            })
 
             return {
                 "success": True,
@@ -512,7 +617,54 @@ Be specific and actionable.
                 "cost": cost_estimate
             }
 
+        except asyncio.TimeoutError:
+            error_msg = f"Delegation timed out after {timeout_seconds}s"
+            print(f"[ERROR] {error_msg}")
+
+            # Drain any remaining messages to prevent bleeding into next delegation
+            print(f"[DEBUG] Draining remaining messages from timed-out delegation...")
+            try:
+                # Try to collect remaining messages with a short timeout
+                async def drain_messages():
+                    drained = 0
+                    async for msg in client.receive_response():
+                        drained += 1
+                        print(f"[DEBUG] Drained message {drained}: {type(msg).__name__}")
+                        # Update cost if we find a ResultMessage
+                        if hasattr(msg, "total_cost_usd"):
+                            nonlocal cost_estimate
+                            cost_estimate = msg.total_cost_usd or cost_estimate
+                        # Stop if we hit a ResultMessage
+                        if "Result" in msg.__class__.__name__:
+                            print(f"[DEBUG] Found ResultMessage while draining")
+                            break
+                    print(f"[DEBUG] Drained {drained} messages")
+
+                await asyncio.wait_for(drain_messages(), timeout=5.0)
+            except asyncio.TimeoutError:
+                print(f"[DEBUG] Drain timeout - some messages may remain buffered")
+            except Exception as e:
+                print(f"[DEBUG] Error while draining: {e}")
+
+            state.log_event("DELEGATION_TIMEOUT", {
+                "timeout": timeout_seconds,
+                "prompt": delegation_prompt[:200]
+            })
+            return {
+                "success": False,
+                "error": error_msg,
+                "cost": cost_estimate
+            }
+
         except Exception as e:
+            error_msg = f"Delegation failed: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            state.log_event("DELEGATION_ERROR", {
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            })
             return {
                 "success": False,
                 "error": str(e),
@@ -661,6 +813,7 @@ Create an agent specification in JSON format:
             model=self.model,
             cwd=str(project.root_path),
             allowed_tools=[],
+            permission_mode="acceptEdits",  # Auto-accept to avoid hanging
             system_prompt={
                 "type": "text",
                 "text": "You are an agent designer. Create detailed agent specifications."
