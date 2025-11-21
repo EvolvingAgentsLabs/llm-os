@@ -192,6 +192,19 @@ chmod +x demo_main.py
 chmod -R 755 ../llmos/workspace/
 ```
 
+### "Delegation timed out after 300.0s"
+
+This is a known issue with the Research Assistant scenario (option 3):
+- Some agent delegations timeout after 5 minutes
+- System continues and may generate partial results
+- Not a critical error
+
+**Recommendation**: Try the Data Pipeline scenario (option 1) instead for reliable multi-agent orchestration.
+
+### "No messages for 60s - stopping delegation"
+
+This warning may appear in the Research scenario. It's informational - the system is handling slow agent responses and will continue execution.
+
 ## Key Concepts (Quick Reference)
 
 ### Three Execution Modes
@@ -225,17 +238,19 @@ Automatically enabled in Learner mode:
 ## Interactive Menu Options
 
 ```
-1. Data Processing Pipeline    - Multi-agent coordination
-2. Code Generation Workflow     - Learn-once, execute-free
-3. Research Assistant          - Complex orchestration
-4. DevOps Automation          - Security hooks
-5. Cross-Project Learning     - Pattern detection
-6. Cost Optimization Demo     - Dramatic savings
-7. SDK Hooks Demo             - All Phase 2.5 features
-8. Run All Scenarios          - Complete demonstration
-9. View System Stats          - Traces, agents, memory
+1. Data Processing Pipeline    - Multi-agent coordination        ✅ Working
+2. Code Generation Workflow     - Learn-once, execute-free        ✅ Working
+3. Research Assistant          - Complex orchestration          ⚠️ Has timeouts
+4. DevOps Automation          - Security hooks                  ✅ Working
+5. Cross-Project Learning     - Pattern detection               ✅ Working
+6. Cost Optimization Demo     - Dramatic savings                ✅ Working
+7. SDK Hooks Demo             - All Phase 2.5 features          ✅ Working
+8. Run All Scenarios          - Complete demonstration          ⚠️ Research has issues
+9. View System Stats          - Traces, agents, memory          ✅ Working
 0. Exit                       - Quit demo
 ```
+
+**Note**: Research Assistant (option 3) has known timeout issues. Use Data Pipeline (option 1) for reliable multi-agent demonstration.
 
 ## Example Session
 

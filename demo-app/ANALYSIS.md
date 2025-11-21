@@ -611,24 +611,31 @@ scheduler.register_task(
 
 ### 10.1 Cost Optimization
 
-| Scenario | First Run (Learner) | Repeat (Follower) | Savings |
-|----------|---------------------|-------------------|---------|
-| Simple code gen | $0.50 | $0.00 | 100% |
-| Data pipeline | $1.20 | $0.00 | 100% |
-| Research task | $2.50 | $0.50 | 80% |
-| DevOps task | $0.30 | $0.00 | 100% |
+| Scenario | First Run (Learner) | Repeat (Follower) | Savings | Status |
+|----------|---------------------|-------------------|---------|--------|
+| Simple code gen | $0.50 | $0.00 | 100% | ✅ Working |
+| Data pipeline | $1.20 | $0.00 | 100% | ✅ Working |
+| Research task | $0.30-0.50 | N/A | N/A | ⚠️ Timeouts |
+| DevOps task | $0.30 | $0.00 | 100% | ✅ Working |
+| Cost optimization | $0.50 | $0.00 | 100% | ✅ Working |
+| SDK Hooks | $0.30 | $0.00 | 100% | ✅ Working |
 
-**Average Savings**: 80-100% after trace library established
+**Average Savings**: 80-100% after trace library established (for working scenarios)
+
+**Note**: Research Assistant scenario experiences delegation timeouts and does not demonstrate full cost savings pattern. Cost is lower than expected due to incomplete execution.
 
 ### 10.2 Execution Speed
 
-| Mode | Average Time | Range |
-|------|--------------|-------|
-| Follower | 0.5s | 0.1-1s |
-| Learner | 30s | 10-60s |
-| Orchestrator | 60s | 30-300s |
+| Mode | Average Time | Range | Notes |
+|------|--------------|-------|-------|
+| Follower | 0.5s | 0.1-1s | ✅ Reliable |
+| Learner | 30s | 10-60s | ✅ Reliable |
+| Orchestrator | 60s | 30-300s | ⚠️ May timeout |
+| Orchestrator (Research) | 960s | 600-1000s | ⚠️ Known issues |
 
-**Speedup**: Follower mode is **60x faster** than Learner mode
+**Speedup**: Follower mode is **60x faster** than Learner mode (when applicable)
+
+**Note**: Research Assistant scenario in Orchestrator mode experiences significant delays (10-16 minutes) due to delegation timeouts. Most other scenarios complete within expected timeframes.
 
 ### 10.3 Trace Confidence Evolution
 
@@ -657,15 +664,15 @@ The `demo-app` provides a comprehensive showcase of all llmos capabilities throu
 
 ### 11.2 Scenarios
 
-| # | Scenario | Features Demonstrated |
-|---|----------|----------------------|
-| 1 | Data Pipeline | Multi-agent orchestration, project management |
-| 2 | Code Generation | Learner → Follower pattern, cost optimization |
-| 3 | Research Assistant | Complex orchestration, dynamic agents |
-| 4 | DevOps Automation | Security hooks, budget control |
-| 5 | Cross-Project Learning | Pattern detection, reusable agents |
-| 6 | Cost Optimization | Dramatic savings demonstration |
-| 7 | SDK Hooks | All Phase 2.5 hooks in action |
+| # | Scenario | Features Demonstrated | Status |
+|---|----------|----------------------|--------|
+| 1 | Data Pipeline | Multi-agent orchestration, project management | ✅ Working |
+| 2 | Code Generation | Learner → Follower pattern, cost optimization | ✅ Working |
+| 3 | Research Assistant | Complex orchestration, dynamic agents | ⚠️ Timeouts |
+| 4 | DevOps Automation | Security hooks, budget control | ✅ Working |
+| 5 | Cross-Project Learning | Pattern detection, reusable agents | ✅ Working |
+| 6 | Cost Optimization | Dramatic savings demonstration | ✅ Working |
+| 7 | SDK Hooks | All Phase 2.5 hooks in action | ✅ Working |
 
 ### 11.3 Structure
 
@@ -693,7 +700,72 @@ demo-app/
 
 ---
 
-## 12. Comparison: llmunix vs llmos
+## 12. Known Limitations and Issues
+
+### 12.1 Research Assistant Scenario (Scenario 3)
+
+**Status**: ⚠️ Partially Working
+
+**Issues Identified**:
+
+1. **Delegation Timeouts** (Primary Issue)
+   - Multiple agent delegations timeout after 300 seconds (5 minutes)
+   - System logs: `[ERROR] Delegation timed out after 300.0s`
+   - Affects 4 out of 6 planned steps
+   - Execution time: 960s (16 minutes) vs expected 180s (3 minutes)
+
+2. **Tool Availability in Delegated Agents**
+   - WebSearch tool not available when researcher agent is delegated
+   - Debug log shows: "researcher agent attempted to search... but doesn't have web search capabilities"
+   - Impacts research quality and completeness
+
+3. **Incomplete Execution**
+   - Only 2 out of 6 steps complete successfully
+   - System still reports "Success" despite partial completion
+   - Cost: $0.34 (actual) vs $2.50 (estimated)
+
+4. **Message Drain Warnings**
+   - `[WARNING] No messages for 60s - stopping delegation`
+   - `[DEBUG] Drain timeout - some messages may remain buffered`
+   - Indicates communication issues between orchestrator and delegated agents
+
+**Root Causes** (Analysis):
+
+1. **Timeout Configuration**: 300s timeout may be too aggressive for research tasks requiring multiple web searches
+2. **Tool Registration**: Tools (WebSearch, WebFetch) may not be properly registered in delegated agent context
+3. **SDK Delegation**: Potential issue with how AgentDefinitions are invoked through the SDK's Task tool
+4. **Message Handling**: Async message iterator may not handle long-running operations gracefully
+
+**Workarounds**:
+
+1. Use **Data Pipeline scenario** (Scenario 1) for reliable multi-agent demonstration
+2. Check `workspace/projects/Project_research_demo/` for any partial research outputs
+3. Consider increasing timeout threshold in `interfaces/orchestrator.py`
+4. Ensure WebSearch tool is available in SDK options when delegating
+
+**Planned Fixes** (Phase 2.6):
+
+- [ ] Investigate SDK Task tool timeout handling
+- [ ] Improve tool registration for delegated agents
+- [ ] Add configurable timeout thresholds per agent type
+- [ ] Better error reporting for partial completions
+- [ ] Implement fallback strategies for timeout scenarios
+
+### 12.2 Working Scenarios Summary
+
+**Fully Functional**:
+- ✅ Code Generation (Scenario 2) - Best first demo
+- ✅ Cost Optimization (Scenario 6) - Shows dramatic savings
+- ✅ Data Pipeline (Scenario 1) - Recommended for multi-agent demo
+- ✅ SDK Hooks (Scenario 7) - All Phase 2.5 features
+- ✅ DevOps Automation (Scenario 4)
+- ✅ Cross-Project Learning (Scenario 5)
+
+**Recommendation**: Start with Scenarios 2, 6, or 1 for best experience. Skip Scenario 3 until Phase 2.6 fixes are implemented.
+
+---
+
+## 13. Comparison: llmunix vs llmos
 
 | Feature | llmunix | llmos (Phase 2.5) |
 |---------|---------|-------------------|
@@ -828,18 +900,37 @@ class TraceBuilder:
 
 ## 16. Conclusion
 
-LLM OS represents a sophisticated, production-ready implementation of an LLM operating system. Its key innovations include:
+LLM OS represents a sophisticated implementation of an LLM operating system with significant innovations and some areas for improvement. Its key innovations include:
 
-1. **Three-Mode Execution**: Achieves 80-100% cost savings through trace reuse
+1. **Three-Mode Execution**: Achieves 80-100% cost savings through trace reuse (in working scenarios)
 2. **SDK Hooks**: Provides automatic budget, security, and tracing controls
-3. **Multi-Agent Orchestration**: Coordinates specialized agents for complex tasks
+3. **Multi-Agent Orchestration**: Coordinates specialized agents for complex tasks (with known limitations)
 4. **Memory Hierarchy**: Efficient four-tier storage system
 5. **Event-Driven Architecture**: Scalable, non-blocking design
 6. **Plugin Extensibility**: Domain-agnostic core
 
-**The demo application successfully showcases all these capabilities** through 7 comprehensive scenarios, providing both educational value and practical templates for real-world usage.
+**Demo Application Status**: The demo successfully showcases most capabilities through 7 scenarios, with 6 fully functional and 1 (Research Assistant) experiencing delegation timeout issues.
 
-**Recommendation**: The llmos codebase is well-structured, properly integrated with Claude Agent SDK, and ready for production deployment in domains requiring repeated LLM-based task execution.
+**Current Strengths**:
+- ✅ Code Generation workflow (Learner → Follower pattern) works flawlessly
+- ✅ Cost optimization clearly demonstrated (100% savings on repeated tasks)
+- ✅ Data Pipeline shows reliable multi-agent coordination
+- ✅ SDK Hooks system provides excellent control and safety
+- ✅ Well-structured codebase with proper Claude Agent SDK integration
+
+**Known Limitations** (Phase 2.5):
+- ⚠️ Research Assistant scenario has delegation timeout issues (300s)
+- ⚠️ Tool availability (WebSearch) problematic in delegated agent contexts
+- ⚠️ Long-running orchestrator tasks may experience message buffering issues
+- ⚠️ Success reporting doesn't always reflect partial completion accurately
+
+**Recommendation**:
+- **For Production Use**: llmos is ready for scenarios similar to Code Generation, Data Pipeline, and DevOps automation
+- **Complex Research Workflows**: Wait for Phase 2.6 improvements to delegation and timeout handling
+- **Best Practices**: Start with simple scenarios, build trace library, then expand to orchestration
+- **Demo Usage**: Use Scenarios 1, 2, 4, 5, 6, 7 for reliable demonstrations; skip Scenario 3 until Phase 2.6
+
+**Overall Assessment**: llmos demonstrates strong fundamentals with excellent cost optimization and a well-designed architecture. The delegation issues in complex orchestration scenarios represent an opportunity for improvement rather than a fundamental flaw. The system is production-ready for many use cases, with clear paths to addressing current limitations.
 
 ---
 

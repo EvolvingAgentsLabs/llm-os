@@ -65,9 +65,11 @@ python demo_main.py --all
 ### 3. Research Assistant
 **Scenario**: Research a topic and create a comprehensive report
 - **Mode**: Orchestrator
-- **Agents**: Research Agent, Synthesis Agent, Technical Writer
+- **Agents**: Research Agent, Technical Writer
 - **Features**: Multi-step orchestration, dynamic agent creation
-- **File**: `scenarios/research_assistant.py`
+- **Status**: ⚠️ Partially working - demonstrates multi-agent setup but has delegation timeout issues
+- **Known Issues**: Some delegations timeout (300s), WebSearch may not work in delegated agents, execution takes 10-16 minutes
+- **Recommendation**: Use Data Pipeline scenario for more reliable multi-agent demonstration
 
 ### 4. DevOps Automation
 **Scenario**: Automate deployment and monitoring tasks
@@ -237,14 +239,18 @@ result = await os.sdk_client.execute_learner_mode(
 
 The demo tracks costs across scenarios:
 
-| Scenario | First Run (Learner) | Repeat (Follower) | Savings |
-|----------|---------------------|-------------------|---------|
-| Simple Code Gen | $0.50 | $0.00 | 100% |
-| Data Pipeline | $1.20 | $0.00 | 100% |
-| Research Task | $2.50 | $0.50 | 80% |
-| DevOps Task | $0.30 | $0.00 | 100% |
+| Scenario | First Run (Learner) | Repeat (Follower) | Savings | Status |
+|----------|---------------------|-------------------|---------|--------|
+| Simple Code Gen | $0.50 | $0.00 | 100% | ✅ Working |
+| Data Pipeline | $1.20 | $0.00 | 100% | ✅ Working |
+| Research Task | $0.30-0.50 | N/A | N/A | ⚠️ Timeouts |
+| DevOps Task | $0.30 | $0.00 | 100% | ✅ Working |
+| Cost Optimization | $0.50 | $0.00 | 100% | ✅ Working |
+| SDK Hooks | $0.30 | $0.00 | 100% | ✅ Working |
 
-**Total savings after trace library built**: ~90-100%
+**Total savings after trace library built**: ~90-100% (for working scenarios)
+
+**Note**: Research Assistant scenario has known timeout issues that affect reliability. Most scenarios demonstrate the full cost savings pattern successfully.
 
 ## Memory and Learning
 
@@ -390,6 +396,31 @@ python demo_main.py --budget 50.0
 ```bash
 chmod -R 755 ../llmos/workspace/
 ```
+
+### "Delegation timed out after 300.0s" (Research Assistant)
+
+This is a **known issue** with the Research Assistant scenario:
+- Some agent delegations timeout after 5 minutes
+- WebSearch tool may not be available in delegated agents
+- System continues with remaining steps and generates partial results
+
+**Workaround**: Use Data Pipeline scenario for reliable multi-agent demonstration.
+
+**Status**: Under investigation for Phase 2.6 improvements.
+
+### "No messages for 60s - stopping delegation"
+
+This warning appears during the Research scenario when delegated agents take too long to respond. It's informational and part of the timeout handling. The system will continue with remaining steps.
+
+### General Performance Notes
+
+- **Code Generation**: ✅ Fully working, best first demo
+- **Cost Optimization**: ✅ Fully working, shows dramatic savings
+- **Data Pipeline**: ✅ Fully working, recommended for multi-agent demo
+- **Research Assistant**: ⚠️ Has timeout issues, demonstrates pattern but not fully functional
+- **SDK Hooks**: ✅ Fully working, shows all Phase 2.5 features
+- **DevOps**: ✅ Fully working
+- **Cross-Project**: ✅ Fully working
 
 ## Next Steps
 

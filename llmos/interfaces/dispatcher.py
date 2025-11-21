@@ -171,7 +171,7 @@ class Dispatcher:
             Mode string: "FOLLOWER", "LEARNER", or "ORCHESTRATOR"
         """
         # Check if trace exists (FOLLOWER mode)
-        trace = self.trace_manager.find_trace(goal, confidence_threshold=0.9)
+        trace = self.trace_manager.find_trace(goal, min_confidence=0.9)
         if trace:
             print(f"📦 Found high-confidence trace (success rate: {trace.success_rating:.0%})")
             return "FOLLOWER"
@@ -201,7 +201,7 @@ class Dispatcher:
 
     async def _dispatch_follower(self, goal: str) -> Dict[str, Any]:
         """Dispatch to Follower mode"""
-        trace = self.trace_manager.find_trace(goal, confidence_threshold=0.9)
+        trace = self.trace_manager.find_trace(goal, min_confidence=0.9)
 
         if not trace:
             return {
