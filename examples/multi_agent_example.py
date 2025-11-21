@@ -13,8 +13,8 @@ import asyncio
 from pathlib import Path
 import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add llmos to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "llmos"))
 
 from boot import LLMOS
 
