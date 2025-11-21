@@ -56,7 +56,51 @@ cd q-kids-studio
 
 ---
 
-### 3. Multi-Agent Example (`multi_agent_example.py`)
+### 3. RoboOS (`robo-os/`)
+
+**LLM OS as the brain of a robotic arm** - Natural language robot control with multi-layer safety.
+
+**What it demonstrates:**
+- 🤖 **Natural Language Control**: Command robots with plain English
+- 🛡️ **Multi-Layer Safety**: PreToolUse hook prevents dangerous operations
+- 👥 **Multi-Agent Coordination**: Operator + Safety Officer collaboration
+- 📹 **State Visualization**: ASCII cockpit view and overhead map
+- 💰 **Learner → Follower**: Teach once, replay forever (100% cost savings)
+- 🔌 **FastAPI Backend**: Production-ready REST API
+- 🌊 **WebSocket Support**: Real-time state updates
+
+**Quick Start:**
+```bash
+cd robo-os
+./run.sh
+```
+
+**Key Features:**
+- **Somatic Layer**: Robot controller plugin with 7 control tools
+- **Cognitive Layer**: Operator agent (control) + Safety Officer (monitoring)
+- **Safety Hook**: Validates workspace bounds, prohibited zones, speed limits
+- **Camera Feeds**: Cockpit HUD and overhead map views
+- **Emergency Systems**: Instant halt with system lock-out
+
+**Example Commands:**
+```
+"Move 30cm to the right"
+"Pick up object at (1.5, 1.0, 0.5)"
+"Show me the cockpit view"
+"Return to home position"
+```
+
+**Safety Demonstrations:**
+- Workspace boundary enforcement (-2 to 2m in X/Y, 0 to 3m in Z)
+- Prohibited zone avoidance (0.5m safety radius)
+- Speed limiting (max 0.5m per command)
+- Emergency stop with violation logging
+
+**Full Documentation:** See [robo-os/README.md](robo-os/README.md)
+
+---
+
+### 4. Multi-Agent Example (`multi_agent_example.py`)
 
 **Interactive Python script** demonstrating Phase 2 and Phase 2.5 features.
 
@@ -92,7 +136,7 @@ python examples/multi_agent_example.py
 
 ---
 
-### 4. Demo App (`demo-app/`)
+### 5. Demo App (`demo-app/`)
 
 **Rich interactive terminal application** with menu-driven scenarios.
 
@@ -135,6 +179,7 @@ python demo_main.py --all                  # Run all scenarios
 |------------------|-----|-----|
 | See a production-ready architecture | **Qiskit Studio Backend** | Full backend replacement with FastAPI |
 | Build educational tools for kids | **Q-Kids Studio** | Kid-safe, gamified, block-based learning |
+| Control robots with natural language | **RoboOS** | LLM as robot brain, multi-layer safety |
 | Explore all Phase 2/2.5 features interactively | **Multi-Agent Example** | 12 focused examples, easy to navigate |
 | Run impressive demos with visual feedback | **Demo App** | Rich UI, scenario-based, great for presentations |
 | Learn about quantum computing integration | **Qiskit Studio Backend** or **Q-Kids Studio** | Domain-specific agents, Qiskit tools |
@@ -142,6 +187,8 @@ python demo_main.py --all                  # Run all scenarios
 | See multi-agent orchestration | **Demo App (Scenario 1)** | 3 agents working together |
 | Test security hooks | **Demo App (Scenario 4 or 7)** | Security and budget control demos |
 | Adaptive AI tutoring systems | **Q-Kids Studio** | Professor Q agent, context-aware hints |
+| Robot safety and control systems | **RoboOS** | Safety hook, prohibited zones, emergency stop |
+| Natural language hardware interfaces | **RoboOS** | Translate NL to precise actions |
 
 ---
 
@@ -195,20 +242,20 @@ Make sure to:
 
 ## 📊 Example Comparison
 
-| Feature | Qiskit Studio | Q-Kids Studio | Multi-Agent Example | Demo App |
-|---------|--------------|---------------|---------------------|----------|
-| **Type** | Full backend application | Educational platform | Interactive Python script | Rich TUI application |
-| **Complexity** | High (production-ready) | High (kid-safe) | Medium (educational) | Medium (demo-focused) |
-| **Use Case** | Backend replacement | STEM education | Feature exploration | Presentations, demos |
-| **Documentation** | Extensive (700+ lines) | Extensive (900+ lines) | Code comments | Inline help |
-| **UI** | REST API | REST API + Block UI | Text prompts | Rich terminal UI |
-| **Lines of Code** | ~3,000 | ~2,500 | ~500 | ~700 |
-| **Best For** | Production deployment | Educational apps | Learning LLM OS | Showcasing features |
-| **Agents** | 2 quantum specialists | 2 tutors (Q + Master) | System agent (dynamic) | 3-7 per scenario |
-| **Tools** | 2 Qiskit tools | 3 kid-safe tools | Standard toolkit | Standard toolkit |
-| **Cost Tracking** | Per-request metadata | Learner/Follower demo | Not emphasized | Detailed cost analysis |
-| **Target Audience** | Quantum developers | Kids ages 8-12 | Developers | Stakeholders |
-| **Safety Features** | Code validation | Multi-layer kid protection | Standard | Standard |
+| Feature | Qiskit Studio | Q-Kids Studio | RoboOS | Multi-Agent Example | Demo App |
+|---------|--------------|---------------|---------|---------------------|----------|
+| **Type** | Full backend application | Educational platform | Robot control system | Interactive Python script | Rich TUI application |
+| **Complexity** | High (production-ready) | High (kid-safe) | High (safety-critical) | Medium (educational) | Medium (demo-focused) |
+| **Use Case** | Backend replacement | STEM education | Robot control | Feature exploration | Presentations, demos |
+| **Documentation** | Extensive (700+ lines) | Extensive (900+ lines) | Extensive (800+ lines) | Code comments | Inline help |
+| **UI** | REST API | REST API + Block UI | REST API + WebSocket | Text prompts | Rich terminal UI |
+| **Lines of Code** | ~3,000 | ~2,500 | ~2,000 | ~500 | ~700 |
+| **Best For** | Production deployment | Educational apps | Robotics applications | Learning LLM OS | Showcasing features |
+| **Agents** | 2 quantum specialists | 2 tutors (Q + Master) | 2 (Operator + Safety) | System agent (dynamic) | 3-7 per scenario |
+| **Tools** | 2 Qiskit tools | 3 kid-safe tools | 7 robot control tools | Standard toolkit | Standard toolkit |
+| **Cost Tracking** | Per-request metadata | Learner/Follower demo | Learner/Follower demo | Not emphasized | Detailed cost analysis |
+| **Target Audience** | Quantum developers | Kids ages 8-12 | Roboticists | Developers | Stakeholders |
+| **Safety Features** | Code validation | Multi-layer kid protection | Multi-layer safety hook | Standard | Standard |
 
 ---
 

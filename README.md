@@ -24,6 +24,8 @@ llm-os/
 │
 ├── examples/           # Production-ready examples
 │   ├── qiskit_studio_backend/  # 🌟 Flagship: Quantum computing backend
+│   ├── q-kids-studio/         # Educational quantum computing (ages 8-12)
+│   ├── robo-os/               # Robot control with LLM brain
 │   ├── demo-app/              # Rich TUI with 7 demo scenarios
 │   └── multi_agent_example.py # Phase 2/2.5 feature showcase
 │
@@ -72,6 +74,14 @@ python boot.py interactive
   - Drop-in replacement for [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend
   - Demonstrates production-grade LLM OS architecture
   - 100% cost savings on repeated tasks via Learner→Follower
+- **[examples/q-kids-studio/](examples/q-kids-studio/)** - Educational quantum platform (ages 8-12)
+  - Block-based quantum programming with gamification
+  - Multi-layer safety for kids
+  - 99%+ cost savings via Learner→Follower caching
+- **[examples/robo-os/](examples/robo-os/)** - Robot control with LLM as brain
+  - Natural language robot control
+  - Multi-layer safety hooks (PreToolUse validation)
+  - Operator + Safety Officer multi-agent coordination
 - **[examples/demo-app/](examples/demo-app/)** - Rich terminal UI with 7 demo scenarios
 - **[examples/multi_agent_example.py](examples/multi_agent_example.py)** - 12 interactive examples of Phase 2/2.5 features
 
@@ -216,6 +226,14 @@ llmos> Summarize latest AI papers
 llmos> Create a 3-qubit GHZ state circuit
 # First time: $0.05 (Learner)
 # Second time: $0.00 (Follower - cached!)
+```
+
+#### Robotics Control
+```
+llmos> Move the robot arm 30cm to the right
+# Operator Agent → move_relative(dx=0.3)
+# Safety Hook validates position
+# Robot executes safely
 ```
 
 ## Evolution from llmunix
