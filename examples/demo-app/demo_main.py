@@ -16,8 +16,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "llmos"))
+# Add llmos to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "llmos"))
 
 from rich.console import Console
 from rich.panel import Panel
