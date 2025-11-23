@@ -1,19 +1,23 @@
-# LLM OS Demo Application
+# LLM OS Demo Application (Phase 2.5+)
 
-A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - Phase 2.5.
+A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - Phase 2.5+ with **Nested Learning**.
+
+**NEW: Semantic Trace Matching with MIXED Mode Execution!**
 
 ## Overview
 
 This demo application demonstrates the full power of llmos through practical, real-world scenarios including:
 
-1. **Three Execution Modes**: Learner, Follower, and Orchestrator
-2. **Project Management**: Organizing work into isolated projects
-3. **Multi-Agent Orchestration**: Coordinating specialized agents for complex tasks
-4. **Dynamic Agent Creation**: Creating agents on-demand for specific needs
-5. **Memory System**: Leveraging execution traces and cross-project learning
-6. **SDK Hooks**: Budget control, security, and trace capture
-7. **Streaming Support**: Real-time feedback during execution
-8. **Cost Optimization**: Learning once, executing infinitely at zero cost
+1. **🧬 Nested Learning (NEW!)**: Semantic trace matching with LLM-based similarity analysis
+2. **Three+ Execution Modes**: Learner, Follower, MIXED (NEW!), and Orchestrator
+3. **Intelligent Mode Selection**: Confidence-based routing (FOLLOWER/MIXED/LEARNER)
+4. **Project Management**: Organizing work into isolated projects
+5. **Multi-Agent Orchestration**: Coordinating specialized agents for complex tasks
+6. **Dynamic Agent Creation**: Creating agents on-demand for specific needs
+7. **Memory System**: Leveraging execution traces and cross-project learning
+8. **SDK Hooks**: Budget control, security, and trace capture
+9. **Streaming Support**: Real-time feedback during execution
+10. **Cost Optimization**: Learning once, executing infinitely at zero cost
 
 ## Quick Start
 
@@ -49,39 +53,66 @@ python demo_main.py --all
 
 ## Demo Scenarios
 
-### 1. Data Processing Pipeline
+### 🌟 1. Nested Learning Demo (NEW!)
+**Scenario**: Demonstrate semantic trace matching and intelligent mode selection
+- **Mode**: Learner → Follower → MIXED
+- **Features**: LLM-based similarity analysis, confidence scoring, three-mode execution
+- **File**: `scenarios/nested_learning_demo.py`
+- **What it shows**:
+  - Initial learning (LEARNER mode)
+  - Exact match replay (FOLLOWER mode - $0 cost)
+  - Semantic match (similar but different) → FOLLOWER/MIXED mode
+  - Related task (different details) → MIXED mode ($0.25 cost)
+  - Unrelated task → LEARNER mode
+  - Automatic mode selection based on confidence scores
+
+**Key Innovation**: The LLM analyzes semantic similarity between goals and traces, not just exact text matching. This means "create a file" and "create a file named X" are understood as semantically equivalent!
+
+### 2. Data Processing Pipeline
 **Scenario**: Build a complete data processing pipeline
 - **Mode**: Orchestrator
 - **Agents**: Data Collector, Data Processor, Report Generator
 - **Features**: Multi-agent coordination, project management, trace capture
-- **File**: `scenarios/data_pipeline.py`
+- **File**: (inline in demo_main.py)
 
-### 2. Code Generation Workflow
+### 3. Code Generation Workflow
 **Scenario**: Generate, test, and document code
 - **Mode**: Learner → Follower
 - **Features**: Trace learning, cost optimization, memory reuse
-- **File**: `scenarios/code_generation.py`
+- **File**: (inline in demo_main.py)
 
-### 3. Research Assistant
+### 4. Cost Optimization Demo
+**Scenario**: Demonstrate dramatic cost savings through trace reuse
+- **Mode**: Learner → Follower (5 iterations)
+- **Features**: Cost tracking, savings analysis
+- **File**: (inline in demo_main.py)
+
+### 5. Research Assistant (Deprecated)
 **Scenario**: Research a topic and create a comprehensive report
 - **Mode**: Orchestrator
 - **Agents**: Research Agent, Technical Writer
 - **Features**: Multi-step orchestration, dynamic agent creation
 - **Status**: ⚠️ Partially working - demonstrates multi-agent setup but has delegation timeout issues
 - **Known Issues**: Some delegations timeout (300s), WebSearch may not work in delegated agents, execution takes 10-16 minutes
-- **Recommendation**: Use Data Pipeline scenario for more reliable multi-agent demonstration
+- **Note**: This scenario has been de-prioritized in the menu due to reliability issues. Use Data Pipeline for multi-agent demonstration.
 
-### 4. DevOps Automation
+### 6. DevOps Automation
 **Scenario**: Automate deployment and monitoring tasks
 - **Mode**: All three modes
 - **Features**: Security hooks, budget control, follower mode efficiency
-- **File**: `scenarios/devops_automation.py`
+- **File**: (inline in demo_main.py)
 
-### 5. Cross-Project Learning
+### 7. Cross-Project Learning
 **Scenario**: Demonstrate learning insights across multiple projects
 - **Mode**: All modes
 - **Features**: Cross-project patterns, reusable agents, optimization
-- **File**: `scenarios/cross_project_demo.py`
+- **File**: (inline in demo_main.py)
+
+### 8. SDK Hooks Demo
+**Scenario**: Demonstrate all Phase 2.5 SDK hooks
+- **Mode**: Learner with hooks
+- **Features**: Security, budget control, trace capture, memory injection
+- **File**: (inline in demo_main.py)
 
 ## Architecture
 
@@ -115,18 +146,28 @@ demo-app/
 
 ## Key Features Demonstrated
 
-### 1. Three Execution Modes
+### 1. Four Execution Modes (Including NEW MIXED Mode!)
 
 **Learner Mode** - First time execution
 ```python
 result = await os.execute("Create a Python script for data analysis")
 # Cost: ~$0.50, learns pattern, creates trace
+# Confidence: N/A (initial learning)
 ```
 
-**Follower Mode** - Repeated execution
+**Follower Mode** - Exact/near-exact match
 ```python
 result = await os.execute("Create a Python script for data analysis")
 # Cost: $0.00, replays learned trace
+# Confidence: ≥92% (virtually identical)
+```
+
+**MIXED Mode** - Similar but different task (NEW! 🌟)
+```python
+result = await os.execute("Create a Python script for customer analysis")
+# Cost: ~$0.25, uses trace as few-shot guidance
+# Confidence: 75-92% (similar, needs adaptation)
+# Uses existing trace to guide LLM, cheaper than full LEARNER
 ```
 
 **Orchestrator Mode** - Complex multi-step tasks
@@ -137,6 +178,8 @@ result = await os.execute(
 )
 # Cost: Variable, coordinates multiple agents
 ```
+
+**The Innovation**: Automatic mode selection based on LLM-analyzed semantic similarity!
 
 ### 2. Project Management
 

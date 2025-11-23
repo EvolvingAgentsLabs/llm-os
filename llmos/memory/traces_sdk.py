@@ -6,13 +6,14 @@ Aligned with Claude Agent SDK's file-based memory approach.
 """
 
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import hashlib
 import re
 
 from memory.sdk_memory import SDKMemoryTool
+from memory.trace_analyzer import TraceAnalyzer, TraceMatch
 
 
 @dataclass
@@ -157,18 +158,37 @@ class TraceManager:
     Stores traces as markdown files in /memories/traces/
     """
 
-    def __init__(self, memories_dir: Path):
+    def __init__(
+        self,
+        memories_dir: Path,
+        workspace: Optional[Path] = None,
+        enable_llm_matching: bool = True
+    ):
         """
         Initialize trace manager
 
         Args:
             memories_dir: Root /memories directory
+            workspace: Workspace directory (for LLM analysis)
+            enable_llm_matching: Enable LLM-based semantic matching
         """
         self.memories_dir = Path(memories_dir)
         self.traces_dir = "traces"  # Relative to /memories
+        self.enable_llm_matching = enable_llm_matching
 
         # Initialize SDK Memory Tool
         self.memory_tool = SDKMemoryTool(self.memories_dir)
+
+        # Initialize LLM-based trace analyzer
+        self.trace_analyzer: Optional[TraceAnalyzer] = None
+        if enable_llm_matching:
+            try:
+                workspace = workspace or Path.cwd()
+                self.trace_analyzer = TraceAnalyzer(workspace)
+            except RuntimeError as e:
+                print(f"[WARNING] Could not initialize TraceAnalyzer: {e}")
+                print("          Falling back to hash-based matching only")
+                self.enable_llm_matching = False
 
         # Ensure traces directory exists
         (self.memories_dir / self.traces_dir).mkdir(parents=True, exist_ok=True)
@@ -232,11 +252,13 @@ class TraceManager:
         min_confidence: float = 0.9
     ) -> Optional[ExecutionTrace]:
         """
-        Find trace for goal
+        Find trace for goal using hash-based exact matching
+
+        This is the legacy method. For semantic matching, use find_trace_with_llm().
 
         Args:
             goal: Goal to search for
-            min_confidence: Minimum confidence threshold
+            min_confidence: Minimum success rating threshold
 
         Returns:
             ExecutionTrace if found, None otherwise
@@ -251,6 +273,96 @@ class TraceManager:
                 return trace
 
         return None
+
+    async def find_trace_with_llm(
+        self,
+        goal: str,
+        min_confidence: float = 0.75,
+        fallback_to_hash: bool = True
+    ) -> Optional[Tuple[ExecutionTrace, float]]:
+        """
+        Find trace using LLM-based semantic matching
+
+        This implements "soft" associative memory:
+        - Understands semantic equivalence ("create file" ≈ "create a file")
+        - Returns confidence score for intelligent mode selection
+        - Falls back to hash matching if LLM analysis unavailable
+
+        Args:
+            goal: Goal to search for
+            min_confidence: Minimum confidence threshold (0.0-1.0)
+            fallback_to_hash: Fall back to hash matching if LLM unavailable
+
+        Returns:
+            Tuple of (ExecutionTrace, confidence_score) if found, None otherwise
+        """
+        # Try LLM-based matching first
+        if self.enable_llm_matching and self.trace_analyzer:
+            traces = self.list_traces()
+
+            if not traces:
+                return None
+
+            try:
+                match = await self.trace_analyzer.find_best_matching_trace(
+                    goal=goal,
+                    traces=traces,
+                    min_confidence=min_confidence
+                )
+
+                if match:
+                    # Find the matching trace
+                    for trace in traces:
+                        if trace.goal_signature == match.trace_signature:
+                            print(f"[LLM Match] Confidence: {match.confidence:.0%}, Mode: {match.recommended_mode}")
+                            print(f"[LLM Match] Reasoning: {match.reasoning}")
+                            return (trace, match.confidence)
+
+            except Exception as e:
+                print(f"[WARNING] LLM trace matching failed: {e}")
+                if not fallback_to_hash:
+                    return None
+
+        # Fallback to hash-based matching
+        if fallback_to_hash:
+            trace = self.find_trace(goal, min_confidence=0.9)
+            if trace:
+                print("[Hash Match] Exact signature match found")
+                return (trace, 1.0)  # Hash match = 100% confidence
+
+        return None
+
+    async def find_trace_smart(
+        self,
+        goal: str
+    ) -> Tuple[Optional[ExecutionTrace], float, str]:
+        """
+        Smart trace finding with automatic mode detection
+
+        Combines LLM and hash matching with intelligent mode recommendation.
+
+        Returns:
+            Tuple of (trace, confidence, recommended_mode)
+            - trace: ExecutionTrace if found, None otherwise
+            - confidence: 0.0-1.0 confidence score
+            - recommended_mode: "FOLLOWER", "MIXED", or "LEARNER"
+        """
+        result = await self.find_trace_with_llm(goal, min_confidence=0.75)
+
+        if result:
+            trace, confidence = result
+
+            # Determine mode based on confidence
+            if confidence >= 0.92:
+                mode = "FOLLOWER"
+            elif confidence >= 0.75:
+                mode = "MIXED"
+            else:
+                mode = "LEARNER"
+
+            return (trace, confidence, mode)
+
+        return (None, 0.0, "LEARNER")
 
     def list_traces(self) -> List[ExecutionTrace]:
         """

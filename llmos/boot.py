@@ -66,7 +66,11 @@ class LLMOS:
 
         # Initialize memory components (SDK-based, using /memories directory)
         self.memory_store = MemoryStore(self.workspace)
-        self.trace_manager = TraceManager(self.workspace / "memories")
+        self.trace_manager = TraceManager(
+            memories_dir=self.workspace / "memories",
+            workspace=self.workspace,
+            enable_llm_matching=True  # Enable LLM-based semantic matching
+        )
         self.memory_query = MemoryQueryInterface(self.trace_manager, self.memory_store)
 
         # Initialize Phase 2 components
