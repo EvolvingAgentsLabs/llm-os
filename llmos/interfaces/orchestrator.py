@@ -845,3 +845,190 @@ Create an agent specification in JSON format:
             return agent
 
         return None
+
+    async def crystallize_pattern(
+        self,
+        trace_signature: str,
+        plugin_loader = None
+    ) -> Optional[str]:
+        """
+        Crystallize an execution trace into a Python tool (HOPE Protocol).
+
+        This implements the Self-Modifying Kernel architecture from the Nested Learning paper.
+        Converts fluid intelligence (LLM reasoning) into crystallized intelligence (Python code).
+
+        Workflow:
+        1. Retrieve trace details from memory
+        2. Instantiate Toolsmith agent
+        3. Generate Python plugin code
+        4. Validate syntax
+        5. Hot-load the new tool
+        6. Mark trace as crystallized
+
+        Args:
+            trace_signature: Signature of the trace to crystallize
+            plugin_loader: Optional PluginLoader instance for hot-loading
+
+        Returns:
+            Name of generated tool if successful, None otherwise
+        """
+        if ClaudeSDKClient is None:
+            print("[ERROR] Claude Agent SDK required for crystallization")
+            return None
+
+        print(f"\n{'='*60}")
+        print(f"💎 CRYSTALLIZATION: Converting trace to tool")
+        print(f"{'='*60}")
+
+        # 1. Get trace details
+        traces = self.trace_manager.list_traces()
+        trace = None
+        for t in traces:
+            if t.goal_signature == trace_signature:
+                trace = t
+                break
+
+        if not trace:
+            print(f"[ERROR] Trace not found: {trace_signature}")
+            return None
+
+        print(f"📝 Goal: {trace.goal_text}")
+        print(f"📊 Usage: {trace.usage_count} times, {trace.success_rating:.0%} success")
+
+        # 2. Ensure Toolsmith agent is registered
+        from kernel.agent_factory import TOOLSMITH_AGENT_TEMPLATE
+
+        if not self.component_registry.get_agent("toolsmith-agent"):
+            self.component_registry.register_agent(TOOLSMITH_AGENT_TEMPLATE)
+
+        # 3. Build crystallization prompt with trace details
+        tools_used_str = ", ".join(trace.tools_used) if trace.tools_used else "N/A"
+
+        crystallization_prompt = f"""
+Convert this execution trace into a Python plugin tool.
+
+## Trace Details
+
+**Goal:** {trace.goal_text}
+**Signature:** {trace.goal_signature}
+**Success Rate:** {trace.success_rating:.0%}
+**Usage Count:** {trace.usage_count}
+**Tools Used:** {tools_used_str}
+**Output Summary:**
+{trace.output_summary or 'No summary available'}
+
+## Your Task
+
+1. Analyze the goal and determine the core functionality
+2. Design a clean function signature with appropriate parameters
+3. Implement the function using the @llm_tool decorator
+4. Include error handling and type hints
+5. Add comprehensive docstrings
+6. Save to: `llmos/plugins/generated/tool_{trace.goal_signature}.py`
+
+## Important
+
+- The tool should generalize the pattern, not just replay the exact trace
+- Use async def for the function
+- Return a dict with {{"success": bool, "result": any}}
+- Follow all safety constraints from your system prompt
+
+Generate the complete Python file now.
+"""
+
+        # 4. Execute with Toolsmith agent using SDK delegation
+        print(f"\n🔨 Invoking Toolsmith agent...")
+
+        # Use the shared client approach
+        toolsmith = self.component_registry.get_agent("toolsmith-agent")
+
+        if not toolsmith:
+            print("[ERROR] Toolsmith agent not found")
+            return None
+
+        # Create temporary project for this operation
+        temp_project = Project(
+            name="crystallization",
+            description="Tool crystallization workspace",
+            root_path=self.workspace
+        )
+
+        # Delegate to Toolsmith using Claude Agent SDK
+        # Register Toolsmith as an AgentDefinition
+        agents_dict = {}
+        if AgentDefinition:
+            agents_dict["toolsmith-agent"] = AgentDefinition(
+                description=toolsmith.description,
+                prompt=toolsmith.system_prompt,
+                tools=toolsmith.tools,
+                model="claude-sonnet-4-5-20250929"
+            )
+
+        options = ClaudeAgentOptions(
+            agents=agents_dict,
+            cwd=str(self.workspace),
+            permission_mode="acceptEdits"
+        )
+
+        result = None
+
+        async with ClaudeSDKClient(options=options) as client:
+            # Delegate to Toolsmith
+            delegation_msg = f"Use the toolsmith-agent to {crystallization_prompt}"
+
+            result_parts = []
+            await client.query(delegation_msg)
+
+            async for msg in client.receive_response():
+                # Extract result
+                if hasattr(msg, "content"):
+                    for block in msg.content:
+                        if hasattr(block, "text"):
+                            result_parts.append(block.text)
+
+                # Break on ResultMessage
+                if "Result" in msg.__class__.__name__:
+                    break
+
+            result = "\n".join(result_parts)
+
+        # 5. Verify file was created
+        generated_tool_path = self.workspace / "llmos" / "plugins" / "generated" / f"tool_{trace.goal_signature}.py"
+
+        if not generated_tool_path.exists():
+            print(f"[ERROR] Tool file not created at: {generated_tool_path}")
+            return None
+
+        # 6. Validate syntax using ast module
+        print(f"\n✅ Validating generated code...")
+
+        try:
+            import ast
+            with open(generated_tool_path, 'r') as f:
+                code = f.read()
+            ast.parse(code)
+            print("   ✓ Syntax valid")
+        except SyntaxError as e:
+            print(f"[ERROR] Invalid syntax in generated tool: {e}")
+            return None
+
+        # 7. Hot-load the tool
+        if plugin_loader:
+            print(f"\n🔥 Hot-loading tool...")
+            success = plugin_loader.load_plugin_dynamically(generated_tool_path)
+
+            if not success:
+                print(f"[ERROR] Failed to hot-load tool")
+                return None
+        else:
+            print(f"   ⚠️  No plugin loader provided - tool will be loaded on next boot")
+
+        # 8. Mark trace as crystallized
+        tool_name = f"tool_{trace.goal_signature}"
+        self.trace_manager.mark_trace_as_crystallized(trace.goal_signature, tool_name)
+
+        print(f"\n{'='*60}")
+        print(f"💎 SUCCESS: Tool crystallized as '{tool_name}'")
+        print(f"{'='*60}\n")
+
+        return tool_name

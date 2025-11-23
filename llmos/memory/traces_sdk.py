@@ -38,6 +38,7 @@ class ExecutionTrace:
     tools_used: List[str] = None
     output_summary: str = ""
     error_notes: str = ""
+    crystallized_into_tool: Optional[str] = None  # Name of generated tool (HOPE architecture)
 
     def to_markdown(self) -> str:
         """Convert trace to markdown format"""
@@ -53,8 +54,12 @@ class ExecutionTrace:
             f"- **Last Used**: {self.last_used.isoformat() if self.last_used else 'Never'}",
             f"- **Estimated Cost**: ${self.estimated_cost_usd:.4f}",
             f"- **Estimated Time**: {self.estimated_time_secs:.1f}s",
-            ""
         ]
+
+        if self.crystallized_into_tool:
+            lines.append(f"- **Crystallized Tool**: `{self.crystallized_into_tool}` 💎")
+
+        lines.append("")
 
         if self.tools_used:
             lines.extend([
@@ -135,6 +140,9 @@ class ExecutionTrace:
         # Extract goal from title
         goal_text = lines[0].replace("# Execution Trace: ", "").strip() if lines else "Unknown"
 
+        # Extract crystallized tool name (remove emoji if present)
+        crystallized_tool = metadata.get("Crystallized Tool", "").rstrip(" 💎").strip() or None
+
         return cls(
             goal_signature=metadata.get("Goal Signature", ""),
             goal_text=goal_text,
@@ -147,7 +155,8 @@ class ExecutionTrace:
             mode=metadata.get("Mode", "LEARNER"),
             tools_used=tools_used if tools_used else None,
             output_summary=output_summary,
-            error_notes=error_notes
+            error_notes=error_notes,
+            crystallized_into_tool=crystallized_tool
         )
 
 
@@ -481,3 +490,46 @@ class TraceManager:
                 return True
 
         return False
+
+    def mark_trace_as_crystallized(self, goal_signature: str, tool_name: str) -> bool:
+        """
+        Mark a trace as crystallized into a tool (HOPE architecture)
+
+        This updates the trace to indicate it has been converted into a permanent Python tool.
+        When a crystallized trace is found, the Dispatcher will execute the tool directly
+        instead of replaying the trace or using LLM reasoning.
+
+        Args:
+            goal_signature: Signature of trace to mark
+            tool_name: Name of the generated tool
+
+        Returns:
+            True if marked successfully
+        """
+        traces = self.list_traces()
+
+        for trace in traces:
+            if trace.goal_signature == goal_signature:
+                trace.crystallized_into_tool = tool_name
+                trace.mode = "CRYSTALLIZED"  # New mode for crystallized traces
+                self.save_trace(trace)
+                print(f"💎 Trace crystallized into tool: {tool_name}")
+                return True
+
+        return False
+
+    def get_crystallized_traces(self) -> List[Tuple[ExecutionTrace, str]]:
+        """
+        Get all traces that have been crystallized into tools
+
+        Returns:
+            List of (trace, tool_name) tuples
+        """
+        traces = self.list_traces()
+        crystallized = []
+
+        for trace in traces:
+            if trace.crystallized_into_tool:
+                crystallized.append((trace, trace.crystallized_into_tool))
+
+        return crystallized

@@ -468,3 +468,87 @@ class CrossProjectLearning:
     def clear_cache(self):
         """Clear the project traces cache"""
         self._project_traces_cache.clear()
+
+    async def identify_crystallization_candidates(
+        self,
+        min_usage: int = 5,
+        min_success: float = 0.95
+    ) -> List[Dict[str, Any]]:
+        """
+        Identify traces that are stable enough to be crystallized into Python tools.
+
+        This implements the HOPE (Self-Modifying Kernel) protocol from the Nested Learning paper.
+        Traces meeting the criteria are candidates for conversion from fluid intelligence (LLM)
+        to crystallized intelligence (Python code).
+
+        Criteria for crystallization:
+        1. High usage count (≥ min_usage) - Pattern is frequently needed
+        2. High success rating (≥ min_success) - Pattern is stable and proven
+        3. Mode is FOLLOWER - Already proven to work reliably
+
+        Args:
+            min_usage: Minimum usage count (default: 5)
+            min_success: Minimum success rating (default: 0.95)
+
+        Returns:
+            List of crystallization candidate dictionaries
+        """
+        candidates = []
+        all_traces = self._get_all_traces()
+
+        for project_name, traces in all_traces.items():
+            for trace in traces:
+                # Check crystallization criteria
+                if (trace.usage_count >= min_usage and
+                    trace.success_rating >= min_success and
+                    not trace.crystallized_into_tool):  # Not already crystallized
+
+                    candidates.append({
+                        "goal": trace.goal_text,
+                        "signature": trace.goal_signature,
+                        "project": project_name,
+                        "usage_count": trace.usage_count,
+                        "success_rating": trace.success_rating,
+                        "estimated_cost_usd": trace.estimated_cost_usd,
+                        "estimated_time_secs": trace.estimated_time_secs,
+                        "tools_used": trace.tools_used or [],
+                        "output_summary": trace.output_summary or "",
+                        "crystallization_priority": self._calculate_crystallization_priority(trace)
+                    })
+
+        # Sort by priority (highest first)
+        candidates.sort(key=lambda c: c["crystallization_priority"], reverse=True)
+
+        return candidates
+
+    def _calculate_crystallization_priority(self, trace: ExecutionTrace) -> float:
+        """
+        Calculate crystallization priority score for a trace.
+
+        Higher scores indicate higher value in crystallizing this pattern.
+
+        Factors:
+        - Usage frequency (more uses = higher priority)
+        - Cost savings potential (expensive traces save more when crystallized)
+        - Success rate (more reliable = higher priority)
+
+        Returns:
+            Priority score (0.0-100.0+)
+        """
+        # Usage weight: 10 points per use
+        usage_score = trace.usage_count * 10
+
+        # Cost weight: $0.50 = 50 points (potential savings from crystallization)
+        cost_score = trace.estimated_cost_usd * 100
+
+        # Success weight: 95% = 95 points
+        success_score = trace.success_rating * 100
+
+        # Combined score with weights
+        priority = (
+            usage_score * 0.5 +      # 50% weight on usage
+            cost_score * 0.3 +        # 30% weight on cost savings
+            success_score * 0.2       # 20% weight on reliability
+        )
+
+        return priority
