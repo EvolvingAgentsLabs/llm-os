@@ -1,6 +1,8 @@
-# Quick Start Guide - LLM OS Demo App
+# Quick Start Guide - LLM OS Demo App (Phase 2.5+)
 
 Get up and running with the LLM OS demo application in 5 minutes.
+
+**NEW: Featuring Nested Learning with Semantic Trace Matching!**
 
 ## Prerequisites
 
@@ -46,9 +48,22 @@ Select a demo scenario:
 
 ## Recommended First Demo
 
-**Choose option 2**: Code Generation Workflow
+**Choose option 1**: 🧬 Nested Learning Demo (NEW!)
 
-This demo shows the core value proposition:
+This demo showcases the cutting-edge Nested Learning implementation:
+1. **Initial trace creation** (LEARNER mode: ~$0.50)
+2. **Exact match replay** (FOLLOWER mode: $0.00 - 100% savings)
+3. **Semantic match** (FOLLOWER/MIXED mode: $0-$0.25 - semantic understanding!)
+4. **Related task** (MIXED mode: $0.25 - trace-guided execution)
+5. **Unrelated task** (LEARNER mode: $0.50 - new learning)
+
+**Key Innovation**: The LLM analyzes semantic similarity, not just exact text matching!
+
+### Alternative First Demo
+
+**Option 2**: Code Generation Workflow
+
+Shows the classic Learner → Follower pattern:
 1. First run: Learner mode (~$0.50) - learns the pattern
 2. Second run: Follower mode ($0.00) - replays for free
 3. **Savings: 100%**
@@ -76,6 +91,9 @@ Mode: FOLLOWER
 ### Try Other Scenarios
 
 ```bash
+# Nested Learning (semantic matching)
+python demo_main.py --scenario nested-learning
+
 # Cost optimization (see dramatic savings)
 python demo_main.py --scenario cost-optimization
 
@@ -207,11 +225,14 @@ This warning may appear in the Research scenario. It's informational - the syste
 
 ## Key Concepts (Quick Reference)
 
-### Three Execution Modes
+### Three Execution Modes (+ MIXED Mode!)
 
 1. **Learner** ($0.50): First time, uses LLM, creates trace
 2. **Follower** ($0.00): Repeat, replays trace, no LLM
-3. **Orchestrator** ($1-3): Complex, coordinates multiple agents
+3. **MIXED** ($0.25): NEW! Similar task, trace-guided LLM execution
+4. **Orchestrator** ($1-3): Complex, coordinates multiple agents
+
+**The Game Changer**: MIXED mode uses traces as few-shot guidance when the task is similar but not identical!
 
 ### Memory Hierarchy
 
@@ -238,16 +259,16 @@ Automatically enabled in Learner mode:
 ## Interactive Menu Options
 
 ```
-1. Data Processing Pipeline    - Multi-agent coordination        ✅ Working
+1. 🧬 Nested Learning Demo      - NEW! Semantic matching         🌟 RECOMMENDED
 2. Code Generation Workflow     - Learn-once, execute-free        ✅ Working
-3. Research Assistant          - Complex orchestration          ⚠️ Has timeouts
-4. DevOps Automation          - Security hooks                  ✅ Working
-5. Cross-Project Learning     - Pattern detection               ✅ Working
-6. Cost Optimization Demo     - Dramatic savings                ✅ Working
-7. SDK Hooks Demo             - All Phase 2.5 features          ✅ Working
-8. Run All Scenarios          - Complete demonstration          ⚠️ Research has issues
-9. View System Stats          - Traces, agents, memory          ✅ Working
-0. Exit                       - Quit demo
+3. Cost Optimization Demo       - Dramatic savings                ✅ Working
+4. Data Processing Pipeline     - Multi-agent coordination        ✅ Working
+5. DevOps Automation           - Security hooks                  ✅ Working
+6. Cross-Project Learning      - Pattern detection               ✅ Working
+7. SDK Hooks Demo              - All Phase 2.5 features          ✅ Working
+8. Run All Scenarios           - Complete demonstration          ✅ Working
+9. View System Stats           - Traces, agents, memory          ✅ Working
+0. Exit                        - Quit demo
 ```
 
 **Note**: Research Assistant (option 3) has known timeout issues. Use Data Pipeline (option 1) for reliable multi-agent demonstration.

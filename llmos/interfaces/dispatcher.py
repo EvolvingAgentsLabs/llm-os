@@ -157,6 +157,8 @@ class Dispatcher:
             return await self._dispatch_orchestrator(goal, project, max_cost_usd)
         elif mode == "FOLLOWER":
             return await self._dispatch_follower(goal)
+        elif mode == "MIXED":
+            return await self._dispatch_mixed(goal, project, max_cost_usd)
         else:  # LEARNER
             return await self._dispatch_learner(goal, project, max_cost_usd)
 
@@ -164,17 +166,32 @@ class Dispatcher:
         """
         Automatically determine the best execution mode
 
+        Uses LLM-based semantic matching to find traces, with fallback to hash matching.
+
+        Execution modes:
+        - FOLLOWER: High confidence (≥0.92) - Execute proven trace directly
+        - MIXED: Medium confidence (0.75-0.92) - Use trace as few-shot guidance
+        - LEARNER: Low confidence (<0.75) - Full LLM reasoning
+        - ORCHESTRATOR: Complex multi-agent task
+
         Args:
             goal: Natural language goal
 
         Returns:
-            Mode string: "FOLLOWER", "LEARNER", or "ORCHESTRATOR"
+            Mode string: "FOLLOWER", "MIXED", "LEARNER", or "ORCHESTRATOR"
         """
-        # Check if trace exists (FOLLOWER mode)
-        trace = self.trace_manager.find_trace(goal, min_confidence=0.9)
-        if trace:
-            print(f"📦 Found high-confidence trace (success rate: {trace.success_rating:.0%})")
-            return "FOLLOWER"
+        # Try LLM-based smart trace finding first
+        trace, confidence, recommended_mode = await self.trace_manager.find_trace_smart(goal)
+
+        if trace and confidence >= 0.75:
+            if confidence >= 0.92:
+                print(f"📦 High-confidence trace match ({confidence:.0%}) - using FOLLOWER mode")
+                print(f"   Success rate: {trace.success_rating:.0%}, Used {trace.usage_count} times")
+            else:
+                print(f"📝 Medium-confidence trace match ({confidence:.0%}) - using MIXED mode")
+                print(f"   Will use trace as guidance for LLM")
+
+            return recommended_mode
 
         # Check complexity indicators for ORCHESTRATOR mode
         complexity_indicators = [
@@ -200,15 +217,25 @@ class Dispatcher:
         return "LEARNER"
 
     async def _dispatch_follower(self, goal: str) -> Dict[str, Any]:
-        """Dispatch to Follower mode"""
-        trace = self.trace_manager.find_trace(goal, min_confidence=0.9)
+        """
+        Dispatch to Follower mode (direct trace replay)
 
-        if not trace:
-            return {
-                "success": False,
-                "error": "No trace found for Follower mode",
-                "mode": "FOLLOWER"
-            }
+        Used when confidence ≥0.92 (virtually identical to previous execution)
+        """
+        # Try to find trace with LLM matching
+        result = await self.trace_manager.find_trace_with_llm(goal, min_confidence=0.92)
+
+        if not result:
+            # Fallback to hash matching
+            trace = self.trace_manager.find_trace(goal, min_confidence=0.9)
+            if not trace:
+                return {
+                    "success": False,
+                    "error": "No trace found for Follower mode",
+                    "mode": "FOLLOWER"
+                }
+        else:
+            trace, confidence = result
 
         print(f"💡 Cost: ~$0, Time: ~{trace.estimated_time_secs:.1f}s")
 
@@ -216,7 +243,7 @@ class Dispatcher:
         success = await self.cortex.follow(trace)
 
         # Update trace statistics
-        self.trace_manager.update_trace_usage(trace.goal_signature, success)
+        self.trace_manager.update_usage(trace.goal_signature)
 
         return {
             "success": success,
@@ -224,6 +251,115 @@ class Dispatcher:
             "trace": trace,
             "cost": 0.0
         }
+
+    async def _dispatch_mixed(
+        self,
+        goal: str,
+        project: Optional[Project] = None,
+        max_cost_usd: float = 5.0
+    ) -> Dict[str, Any]:
+        """
+        Dispatch to Mixed mode (trace-guided LLM execution)
+
+        Used when confidence is 0.75-0.92 (similar but not identical).
+        The trace is provided as few-shot guidance to the LLM.
+
+        This is cheaper than full LEARNER mode but more adaptive than FOLLOWER.
+        """
+        # Find matching trace
+        result = await self.trace_manager.find_trace_with_llm(goal, min_confidence=0.75)
+
+        if not result:
+            print("[WARNING] MIXED mode requested but no trace found - falling back to LEARNER")
+            return await self._dispatch_learner(goal, project, max_cost_usd)
+
+        trace, confidence = result
+
+        estimated_cost = 0.25  # Cheaper than LEARNER ($0.50) but not free
+
+        print(f"💡 Cost: ~${estimated_cost:.2f}, Time: variable")
+        print(f"💡 Using trace as guidance (confidence: {confidence:.0%})")
+
+        # Check budget
+        try:
+            self.token_economy.check_budget(max_cost_usd)
+        except LowBatteryError as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "mode": "MIXED"
+            }
+
+        # Use SDK client if available
+        if self.sdk_client:
+            print("🔌 Using Claude Agent SDK with trace guidance")
+
+            # Build few-shot prompt with trace
+            few_shot_context = f"""
+# Similar Task Example
+
+I have executed a similar task before. Here's what I did:
+
+**Previous Goal:** {trace.goal_text}
+**Success Rate:** {trace.success_rating:.0%}
+**Tools Used:** {', '.join(trace.tools_used) if trace.tools_used else 'N/A'}
+
+**Output Summary:**
+{trace.output_summary if trace.output_summary else 'No summary available'}
+
+---
+
+**Current Goal (may differ slightly):** {goal}
+
+Use the above as guidance, but adapt as needed for the current goal.
+"""
+
+            # Execute with few-shot context
+            import hashlib
+            goal_signature = hashlib.sha256(goal.encode()).hexdigest()[:16]
+
+            result = await self.sdk_client.execute_learner_mode(
+                goal=few_shot_context,
+                goal_signature=goal_signature,
+                project=project,
+                max_cost_usd=max_cost_usd
+            )
+
+            # Deduct cost
+            if result["success"]:
+                self.token_economy.deduct(
+                    result["cost"],
+                    f"Mixed: {goal[:50]}..."
+                )
+
+            result["mode"] = "MIXED"
+            result["guidance_trace"] = trace
+            result["confidence"] = confidence
+            return result
+
+        # Fallback to cortex
+        else:
+            print("⚠️  Using fallback cortex mode (SDK not available)")
+
+            await self._ensure_cortex()
+
+            # Execute with trace as context
+            new_trace = await self.cortex.learn(goal, guidance_trace=trace)
+
+            # Save the new trace
+            self.trace_manager.save_trace(new_trace)
+
+            # Deduct cost
+            self.token_economy.deduct(estimated_cost, f"Mixed: {goal[:50]}...")
+
+            return {
+                "success": True,
+                "mode": "MIXED",
+                "trace": new_trace,
+                "guidance_trace": trace,
+                "confidence": confidence,
+                "cost": estimated_cost
+            }
 
     async def _dispatch_learner(
         self,

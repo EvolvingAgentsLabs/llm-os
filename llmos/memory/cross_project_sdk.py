@@ -90,7 +90,11 @@ class CrossProjectLearning:
         if not project_memories.exists():
             return []
 
-        trace_manager = TraceManager(self.memories_dir)
+        trace_manager = TraceManager(
+            memories_dir=self.memories_dir,
+            workspace=self.workspace,
+            enable_llm_matching=False  # Disable for cross-project (optional optimization)
+        )
 
         # List traces specific to this project
         traces = []

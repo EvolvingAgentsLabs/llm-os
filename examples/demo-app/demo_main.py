@@ -26,6 +26,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
 from boot import LLMOS
+from scenarios.nested_learning_demo import run_nested_learning_demo
 
 
 console = Console()
@@ -67,12 +68,12 @@ class DemoApp:
         """Display welcome banner"""
         banner = """
 [bold cyan]╔══════════════════════════════════════════════════════════════╗[/bold cyan]
-[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (Phase 2.5)[/bold yellow]             [bold cyan]║[/bold cyan]
-[bold cyan]║[/bold cyan]    Comprehensive showcase of llmos capabilities         [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (Phase 2.5+)[/bold yellow]            [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    Featuring: 🧬 Nested Learning (Semantic Matching)    [bold cyan]║[/bold cyan]
 [bold cyan]╚══════════════════════════════════════════════════════════════╝[/bold cyan]
 
-[bold]Three Execution Modes:[/bold] Learner | Follower | Orchestrator
-[bold]Features:[/bold] Multi-Agent, Projects, Memory, Hooks, Streaming
+[bold]Three Execution Modes:[/bold] Learner | Follower | MIXED (NEW!)
+[bold]Features:[/bold] Nested Learning, Multi-Agent, Projects, Memory, Hooks
 [bold]Budget:[/bold] $""" + f"{self.budget_usd:.2f}"
 
         console.print(Panel(banner, border_style="cyan"))
@@ -82,14 +83,14 @@ class DemoApp:
         console.print("\n[bold cyan]Select a demo scenario:[/bold cyan]\n")
 
         scenarios = [
-            ("1", "Data Processing Pipeline", "Multi-agent orchestration ✅"),
+            ("1", "🧬 Nested Learning Demo", "NEW! Semantic matching & MIXED mode 🌟"),
             ("2", "Code Generation Workflow", "Learn-once, execute-free ✅"),
-            ("3", "Research Assistant", "Complex orchestration ⚠️ (Has timeouts)"),
-            ("4", "DevOps Automation", "Automated deployment ✅"),
-            ("5", "Cross-Project Learning", "Learning insights ✅"),
-            ("6", "Cost Optimization Demo", "Dramatic cost savings ✅"),
+            ("3", "Cost Optimization Demo", "Dramatic cost savings ✅"),
+            ("4", "Data Processing Pipeline", "Multi-agent orchestration ✅"),
+            ("5", "DevOps Automation", "Automated deployment ✅"),
+            ("6", "Cross-Project Learning", "Learning insights ✅"),
             ("7", "SDK Hooks Demo", "Budget control & security ✅"),
-            ("8", "Run All Scenarios", "Execute all demos ⚠️ (Includes #3)"),
+            ("8", "Run All Scenarios", "Execute all demos (recommended) ✅"),
             ("9", "View System Stats", "Show traces, agents, memory ✅"),
             ("0", "Exit", "Exit demo application")
         ]
@@ -239,6 +240,14 @@ class DemoApp:
             console.print(f"\n[bold green]💰 Savings: {savings_pct:.1f}%[/bold green]")
 
         self._track_cost("code_generation", cost1 + cost2)
+
+    async def scenario_nested_learning(self):
+        """Nested Learning Demo - Semantic Matching"""
+        if not self.os:
+            await self.boot_os("nested_learning_demo")
+
+        result = await run_nested_learning_demo(self.os)
+        self._track_cost("nested_learning", result.get("total_cost", 0.0))
 
     async def scenario_3_research_assistant(self):
         """Scenario 3: Research Assistant"""
@@ -500,12 +509,12 @@ IMPORTANT CONSTRAINTS:
         input("\nPress Enter to continue or Ctrl+C to cancel...")
 
         scenarios = [
-            ("Data Pipeline", self.scenario_1_data_pipeline),
+            ("Nested Learning", self.scenario_nested_learning),
             ("Code Generation", self.scenario_2_code_generation),
-            ("Research Assistant", self.scenario_3_research_assistant),
+            ("Cost Optimization", self.scenario_6_cost_optimization),
+            ("Data Pipeline", self.scenario_1_data_pipeline),
             ("DevOps Automation", self.scenario_4_devops_automation),
             ("Cross-Project Learning", self.scenario_5_cross_project),
-            ("Cost Optimization", self.scenario_6_cost_optimization),
             ("SDK Hooks", self.scenario_7_sdk_hooks),
         ]
 
@@ -646,17 +655,17 @@ IMPORTANT CONSTRAINTS:
                     console.print("\n[yellow]Exiting demo...[/yellow]")
                     break
                 elif choice == "1":
-                    await self.scenario_1_data_pipeline()
+                    await self.scenario_nested_learning()
                 elif choice == "2":
                     await self.scenario_2_code_generation()
                 elif choice == "3":
-                    await self.scenario_3_research_assistant()
-                elif choice == "4":
-                    await self.scenario_4_devops_automation()
-                elif choice == "5":
-                    await self.scenario_5_cross_project()
-                elif choice == "6":
                     await self.scenario_6_cost_optimization()
+                elif choice == "4":
+                    await self.scenario_1_data_pipeline()
+                elif choice == "5":
+                    await self.scenario_4_devops_automation()
+                elif choice == "6":
+                    await self.scenario_5_cross_project()
                 elif choice == "7":
                     await self.scenario_7_sdk_hooks()
                 elif choice == "8":
@@ -709,9 +718,9 @@ async def main():
         await demo.boot_os()
 
         scenario_map = {
+            "nested-learning": demo.scenario_nested_learning,
             "data-pipeline": demo.scenario_1_data_pipeline,
             "code-generation": demo.scenario_2_code_generation,
-            "research": demo.scenario_3_research_assistant,
             "devops": demo.scenario_4_devops_automation,
             "cross-project": demo.scenario_5_cross_project,
             "cost-optimization": demo.scenario_6_cost_optimization,
