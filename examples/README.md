@@ -2,6 +2,61 @@
 
 This directory contains comprehensive examples demonstrating LLM OS capabilities.
 
+## 🌟 NEW: Hybrid Architecture (v3.2.0) - The Flagship Feature
+
+**The future of LLM OS is here**: Markdown-defined agents that the system can create and modify on the fly!
+
+### Hybrid Architecture Demo (`hybrid_architecture_demo.py`)
+
+**The most important example** - demonstrates how LLM OS combines:
+- **Markdown Mind**: Agents defined in simple `.md` files (flexibility + self-modification)
+- **Python Kernel**: Robust tooling, security, performance (stability)
+- **HOPE Pattern**: System writes its own code through crystallization
+
+**What it demonstrates:**
+- 📝 **Markdown Agents**: Define agents in `workspace/agents/*.md` (no Python!)
+- 🔧 **Self-Modification**: System creates new agents using `create_agent` tool
+- 🔄 **Hot-Reloading**: New agents available instantly (no restart)
+- 📊 **Agent Management**: List, create, modify agents dynamically
+- 🎯 **Example Flow**: Creates a haiku-poet agent and uses it immediately
+
+**Quick Start:**
+```bash
+python examples/hybrid_architecture_demo.py
+```
+
+**5 Interactive Demonstrations:**
+1. **List Agents** - See Markdown-defined agents
+2. **Create Agent** - System creates haiku-poet agent by writing a file
+3. **Use Agent** - Immediately delegate to newly created agent
+4. **Modify Agent** - System improves agent capabilities
+5. **Inspect Files** - View the actual Markdown files
+
+**Why This Matters:**
+- **Self-Modification**: System evolves its own capabilities
+- **No Restart**: Changes take effect immediately
+- **Human-Readable**: Agents are just Markdown files
+- **Version Control**: Track agent evolution in git
+- **LLM-Friendly**: System can read/write its own agent definitions
+
+**Full Documentation:** See [../HYBRID_ARCHITECTURE.md](../HYBRID_ARCHITECTURE.md) (531 lines)
+
+**Sample Markdown Agent:**
+```markdown
+---
+name: deep-researcher
+description: Expert at web research and data synthesis
+tools: ["WebFetch", "Read", "Write", "Bash"]
+model: sonnet
+---
+
+# Deep Researcher Agent
+
+You are an expert researcher specializing in...
+```
+
+---
+
 ## 🆕 NEW: Phase 1 Design Patterns (2025-11-23)
 
 **Start here** to see the latest architecture improvements:
@@ -217,6 +272,8 @@ python demo_main.py --all                  # Run all scenarios
 
 | If you want to... | Use | Why |
 |------------------|-----|-----|
+| **Understand the Hybrid Architecture** | **Hybrid Architecture Demo** ⭐ | **Markdown agents, self-modification, the future** |
+| See self-modifying systems in action | **Hybrid Architecture Demo** | System creates its own agents dynamically |
 | See a production-ready architecture | **Qiskit Studio Backend** | Full backend replacement with FastAPI |
 | Build educational tools for kids | **Q-Kids Studio** | Kid-safe, gamified, block-based learning |
 | Control robots with natural language | **RoboOS** | LLM as robot brain, multi-layer safety |
@@ -261,13 +318,14 @@ All examples require:
 
 | Version | Date | Key Features |
 |---------|------|--------------|
-| **3.1.0** | 2025-11-23 | Phase 1 Patterns: Config, Strategy, DI |
+| **3.2.0** | 2025-11-23 | **Hybrid Architecture**: Markdown agents, self-modification, HOPE |
+| 3.1.0 | 2025-11-23 | Phase 1 Patterns: Config, Strategy, DI |
 | 3.0.0 | 2025-11-22 | Phase 3.0: HOPE Architecture (Crystallization) |
 | 2.5.0 | 2025-11-21 | Phase 2.5: Nested Learning (Semantic Matching) |
 | 2.0.0 | 2025-11-20 | Phase 2.0: Multi-Agent Orchestration |
 | 1.0.0 | 2025-11-19 | Phase 1.0: Learner/Follower Pattern |
 
-**All examples maintain backward compatibility** - examples from v1.0.0 still work in v3.1.0!
+**All examples maintain backward compatibility** - examples from v1.0.0 still work in v3.2.0!
 
 ---
 

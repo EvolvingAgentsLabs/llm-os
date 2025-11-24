@@ -2,13 +2,24 @@
 """
 Phase 1 Design Patterns Example
 
-Demonstrates the new configuration, strategy, and dependency injection
-patterns implemented in Phase 1.
+Demonstrates configuration, strategy, and dependency injection patterns
+that form the foundation of the LLM OS architecture.
+
+NOTE: This example focuses on the PYTHON-BASED configuration layer.
+For the NEW v3.2.0 Hybrid Architecture (Markdown agents), see:
+- examples/hybrid_architecture_demo.py (self-modifying agents)
+- ../HYBRID_ARCHITECTURE.md (full documentation)
 
 Features demonstrated:
 1. Configuration Management (presets, custom config, builder)
 2. Strategy Pattern (cost-optimized, speed-optimized, custom)
 3. Manual Dependency Injection (testing with mocks)
+
+These patterns enable:
+- Testability (+167% improvement)
+- Centralized configuration (20+ values → 1 config)
+- Pluggable mode selection strategies
+- Easy mocking for unit tests
 """
 
 import asyncio

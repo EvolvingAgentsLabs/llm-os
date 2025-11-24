@@ -1,35 +1,101 @@
 # LLM OS - Evolution of llmunix
 
-> A Generic LLM Operating System built on Claude Agent SDK
+> A Self-Modifying LLM Operating System with Hybrid Architecture
 
-**Current Version**: Phase 2.5
-- ✅ Phase 1: Learner-Follower pattern (cost optimization)
+**Current Version**: 3.2.0 (Hybrid Architecture)
+- ✅ **Phase 3.2**: Hybrid Architecture - Markdown agents + Python kernel
+- ✅ Phase 3.0: HOPE - Self-modifying kernel with crystallization
+- ✅ Phase 2.5: SDK hooks, streaming, nested learning
 - ✅ Phase 2: Multi-agent orchestration, project management
-- ✅ Phase 2.5: SDK hooks, streaming, advanced options
+- ✅ Phase 1: Learner-Follower pattern (cost optimization)
+
+## 🌟 The Hybrid Architecture
+
+**The future of LLM OS**: Agents are defined in **Markdown files** that the system can create and modify on the fly!
+
+### Three-Layer Stack
+
+```
+┌─────────────────────────────────────────┐
+│   Markdown Mind (Cognitive Layer)       │
+│   workspace/agents/*.md                 │
+│   - Self-modifiable by the LLM          │
+│   - Hot-reloadable (no restart)         │
+│   - Human-readable, version-controllable│
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│   Python Kernel (Somatic Layer)         │
+│   llmos/                                │
+│   - Type-safe, performant               │
+│   - Security hooks, token economy       │
+│   - Production-ready runtime            │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│   Crystallized Intelligence (HOPE)      │
+│   llmos/plugins/generated/              │
+│   - Auto-generated Python tools         │
+│   - Instant, zero-cost execution        │
+│   - System self-optimization            │
+└─────────────────────────────────────────┘
+```
+
+### Key Innovation: Self-Modification
+
+The system can **create new agents** by writing Markdown files:
+
+```python
+# System uses create_agent tool
+await os.execute("Create a haiku-poet agent that writes beautiful haikus")
+
+# Result: workspace/agents/haiku-poet.md is created
+# Agent is immediately available, no restart needed!
+```
+
+**Why This Matters:**
+- 📝 **Just-in-Time Agents**: System creates specialists on demand
+- 🔄 **Hot Reload**: Changes take effect instantly
+- 🧠 **LLM-Friendly**: System can read/write its own definitions
+- 🎯 **Self-Evolution**: System improves itself over time
+- 📚 **Version Control**: Track agent evolution in git
+
+See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for full documentation.
 
 ## Overview
 
-This repository contains **llmos** (LLM OS), the evolved version of [llmunix](../llmunix) based on the Claude Agent SDK. While llmunix is a markdown-driven framework focused on project-based agent orchestration, llmos is a **generic operating system** that treats the LLM as a CPU with three execution modes: Learner, Follower, and Orchestrator.
+This repository contains **llmos** (LLM OS), the evolved version of [llmunix](../llmunix) based on the Claude Agent SDK. Starting with v3.2.0, llmos implements a **Hybrid Architecture** combining llmunix's markdown philosophy (flexibility, self-modification) with llmos's Python kernel (stability, security, performance).
 
 ## Project Structure
 
 ```
 llm-os/
-├── llmos/              # The new LLM OS implementation
-│   ├── boot.py         # Entry point
-│   ├── kernel/         # Somatic layer (Scheduler, Watchdog, Event Bus)
-│   ├── memory/         # Storage layer (Traces, Semantic memory)
-│   ├── interfaces/     # Cognitive layer (Cortex, Dispatcher)
-│   └── plugins/        # Extensible tools
+├── llmos/                          # Python Kernel (Somatic Layer)
+│   ├── boot.py                     # Entry point
+│   ├── kernel/                     # Core OS components
+│   │   ├── agent_loader.py         # 🆕 Markdown → Runtime bridge
+│   │   └── ...                     # Scheduler, Watchdog, Event Bus
+│   ├── memory/                     # Storage layer (Traces, Memory)
+│   ├── interfaces/                 # Execution layer (Dispatcher, Orchestrator)
+│   └── plugins/                    # Tools
+│       ├── system_tools.py         # 🆕 create_agent, list_agents, modify_agent
+│       └── generated/              # 🆕 Auto-generated crystallized tools
 │
-├── examples/           # Production-ready examples
-│   ├── qiskit_studio_backend/  # 🌟 Flagship: Quantum computing backend
-│   ├── q-kids-studio/         # Educational quantum computing (ages 8-12)
-│   ├── robo-os/               # Robot control with LLM brain
-│   ├── demo-app/              # Rich TUI with 7 demo scenarios
-│   └── multi_agent_example.py # Phase 2/2.5 feature showcase
+├── workspace/                      # 🆕 Markdown Mind (Cognitive Layer)
+│   └── agents/                     # 🆕 Agent definitions (.md files)
+│       ├── researcher.md           # Sample: Web research specialist
+│       ├── coder.md                # Sample: Expert coder
+│       └── data-analyst.md         # Sample: Data analysis specialist
 │
-└── llmunix/           # Original llmunix (in parent directory)
+├── examples/                       # Production-ready examples
+│   ├── hybrid_architecture_demo.py # ⭐ NEW: Self-modification demo
+│   ├── qiskit_studio_backend/      # Quantum computing backend
+│   ├── q-kids-studio/              # Educational quantum (ages 8-12)
+│   ├── robo-os/                    # Robot control with LLM brain
+│   ├── demo-app/                   # Rich TUI with 7 scenarios
+│   └── multi_agent_example.py      # Phase 2/2.5 feature showcase
+│
+└── HYBRID_ARCHITECTURE.md          # 🆕 Full documentation (531 lines)
 ```
 
 ## Key Differences
@@ -95,33 +161,49 @@ llmos treats the LLM as a **Central Processing Unit**:
 - **LLM**: Processor (planning, reasoning, learning, orchestration)
 - **Tokens**: Battery (energy for cognitive cycles, controlled by hooks)
 
-### Three Execution Modes (Phase 2.5)
+### Five Execution Modes (v3.2.0)
 
-**1. Follower Mode** (Fast & Free)
+**1. CRYSTALLIZED Mode** (Instant & Free) - 🆕 HOPE Phase 3.0
+```
+Frequent Task: "Create API endpoint"
+  → Pattern used 5+ times (95%+ success)
+  → Execute auto-generated Python tool
+  → Cost: $0.00, Time: <1s
+```
+
+**2. FOLLOWER Mode** (Fast & Free)
 ```
 Repeat Task: "Create Python calculator"
   → Finds matching trace (confidence > 0.9)
   → Pure Python execution
-  → Cost: $0.00
+  → Cost: $0.00, Time: 2-5s
 ```
 
-**2. Learner Mode** (Novel & Controlled)
+**3. MIXED Mode** (Guided & Efficient) - Phase 2.5
+```
+Similar Task: "Create calculator with GUI"
+  → Found similar trace (confidence 0.75-0.92)
+  → Few-shot LLM guidance
+  → Cost: ~$0.25, Time: 5-15s
+```
+
+**4. LEARNER Mode** (Novel & Controlled)
 ```
 New Task: "Create Python calculator"
   → No trace found
   → Claude SDK with hooks (budget, security, tracing)
   → Saves execution trace (Markdown)
-  → Cost: ~$0.50 (controlled by hooks)
+  → Cost: ~$0.50, Time: 10-30s
 ```
 
-**3. Orchestrator Mode** (Complex & Multi-Agent) - Phase 2
+**5. ORCHESTRATOR Mode** (Complex & Multi-Agent) - Phase 2
 ```
 Complex Task: "Research AI trends and write report"
   → Detects complexity (keywords: "and", "research")
   → Breaks down into subtasks
   → Creates/selects agents (researcher, writer)
   → Coordinates via AgentDefinitions
-  → Cost: Variable (~$1-2, hook-controlled)
+  → Cost: Variable (~$1-2)
 ```
 
 ### Token Economy
@@ -278,13 +360,15 @@ Apache 2.0
 ---
 
 **llmunix**: Markdown Operating System for agentic workflows
-**llmos** (Phase 2.5): Generic LLM Operating System with:
-- Three execution modes (Learner/Follower/Orchestrator)
+**llmos** (v3.2.0): Self-Modifying LLM Operating System with:
+- **Hybrid Architecture**: Markdown Mind + Python Kernel + Crystallization
+- Five execution modes (CRYSTALLIZED/FOLLOWER/MIXED/LEARNER/ORCHESTRATOR)
+- Self-modification: System creates and evolves its own agents
+- Hot-reload: Changes take effect instantly
 - SDK hooks (budget, security, tracing)
-- Multi-agent orchestration (AgentDefinition)
-- Streaming support
+- Multi-agent orchestration
 - Token economy
 
 Both are part of the Evolving Agents Labs ecosystem.
 
-**Latest**: Phase 2.5 adds comprehensive SDK integration with hooks, streaming, and advanced options for production-ready LLM OS deployments.
+**Latest**: v3.2.0 introduces the **Hybrid Architecture**, combining llmunix's markdown flexibility with llmos's Python stability. The system can now create and modify agents by writing Markdown files, achieving true self-modification. See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for details.
