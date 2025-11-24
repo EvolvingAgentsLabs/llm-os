@@ -22,6 +22,7 @@ from memory.traces_sdk import ExecutionTrace
 from kernel.project_manager import Project
 from kernel.agent_factory import AgentSpec
 from kernel.hooks import HookRegistry, create_default_hooks
+from kernel.agent_loader import AgentLoader
 
 
 def agent_spec_to_definition(spec: AgentSpec) -> 'AgentDefinition':
@@ -153,6 +154,9 @@ class LLMOSSDKClient:
         self.token_economy = token_economy
         self.memory_query = memory_query
 
+        # Initialize AgentLoader for Markdown-defined agents (Hybrid Architecture)
+        self.agent_loader = AgentLoader(str(workspace / "agents"))
+
     def _build_agent_options(
         self,
         agent_spec: Optional[AgentSpec] = None,
@@ -204,7 +208,13 @@ class LLMOSSDKClient:
             system_prompt = agent_spec.system_prompt
 
         # Register all available agents as AgentDefinitions
-        agents_dict = {}
+        # HYBRID ARCHITECTURE: Load Markdown agents first, then merge programmatic agents
+
+        # 1. Load dynamic Markdown-defined agents from workspace/agents/*.md
+        agents_dict = self.agent_loader.load_all_agents()
+
+        # 2. Merge programmatic agents (Python-defined AgentSpec)
+        # Programmatic agents take precedence if names collide
         if available_agents:
             for spec in available_agents:
                 try:

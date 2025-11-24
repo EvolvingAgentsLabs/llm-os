@@ -174,7 +174,7 @@ class LLMOS:
         self._running = False
 
     def _register_builtin_agents(self):
-        """Register built-in system agents"""
+        """Register built-in system agents and tools"""
         from kernel.agent_factory import SYSTEM_AGENT_TEMPLATE
 
         # Register system agent
@@ -183,6 +183,14 @@ class LLMOS:
         # Register any custom agents from agents/ directory
         for agent_spec in self.agent_factory.list_agents():
             self.component_registry.register_agent(agent_spec)
+
+        # Import system tools to make them available
+        # (Hybrid Architecture: enables self-modification)
+        try:
+            import plugins.system_tools
+            print("🔧 Loaded system tools (create_agent, list_agents, modify_agent)")
+        except ImportError as e:
+            print(f"⚠️  Could not load system tools: {e}")
 
     async def boot(self):
         """Boot the operating system"""
