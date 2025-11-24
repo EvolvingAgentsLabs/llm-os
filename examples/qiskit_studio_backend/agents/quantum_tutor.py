@@ -15,8 +15,10 @@ Key capabilities:
 from pathlib import Path
 import sys
 
-# Add llmos to path
-sys.path.insert(0, str(Path(__file__).parents[3] / "llmos"))
+# Add llmos to path - support both standalone and in-tree execution
+LLMOS_ROOT = Path(__file__).parents[3]  # Go up to llm-os root
+if (LLMOS_ROOT / "llmos").exists():
+    sys.path.insert(0, str(LLMOS_ROOT))  # Add llm-os root to path
 
 from kernel.agent_factory import AgentSpec
 
