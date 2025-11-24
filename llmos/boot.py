@@ -24,6 +24,21 @@ from memory.query_sdk import MemoryQueryInterface
 from memory.cross_project_sdk import CrossProjectLearning
 from interfaces.dispatcher import Dispatcher
 from kernel.token_economy import TokenEconomy
+from kernel.config import LLMOSConfig
+from kernel.service_factory import (
+    create_event_bus,
+    create_token_economy,
+    create_scheduler,
+    create_watchdog,
+    create_memory_store,
+    create_trace_manager,
+    create_memory_query,
+    create_project_manager,
+    create_agent_factory,
+    create_component_registry,
+    create_cross_project_learning,
+    create_dispatcher,
+)
 
 
 class LLMOS:
@@ -45,43 +60,96 @@ class LLMOS:
         self,
         budget_usd: float = 10.0,
         workspace: Optional[Path] = None,
-        project_name: Optional[str] = None
+        project_name: Optional[str] = None,
+        config: Optional[LLMOSConfig] = None,
+        # Optional dependency injection (for testing)
+        event_bus: Optional[EventBus] = None,
+        token_economy: Optional[TokenEconomy] = None,
+        scheduler: Optional[Scheduler] = None,
+        watchdog: Optional[Watchdog] = None,
+        memory_store: Optional[MemoryStore] = None,
+        trace_manager: Optional[TraceManager] = None,
+        memory_query: Optional[MemoryQueryInterface] = None,
+        project_manager: Optional[ProjectManager] = None,
+        agent_factory: Optional[AgentFactory] = None,
+        component_registry: Optional[ComponentRegistry] = None,
+        cross_project_learning: Optional[CrossProjectLearning] = None,
+        dispatcher: Optional[Dispatcher] = None,
     ):
         """
         Initialize the LLM OS
 
         Args:
-            budget_usd: Token budget in USD
+            budget_usd: Token budget in USD (ignored if config provided)
             workspace: Workspace directory (defaults to ./workspace)
             project_name: Optional project name (creates/loads project)
+            config: Optional LLMOSConfig instance (overrides other params)
+
+            # Optional dependency injection (for testing):
+            event_bus: Event bus instance
+            token_economy: Token economy instance
+            scheduler: Scheduler instance
+            watchdog: Watchdog instance
+            memory_store: Memory store instance
+            trace_manager: Trace manager instance
+            memory_query: Memory query interface instance
+            project_manager: Project manager instance
+            agent_factory: Agent factory instance
+            component_registry: Component registry instance
+            cross_project_learning: Cross-project learning instance
+            dispatcher: Dispatcher instance
+
+        Example:
+            # Simple usage (backward compatible)
+            os = LLMOS(budget_usd=10.0)
+
+            # With configuration preset
+            config = LLMOSConfig.production()
+            os = LLMOS(config=config)
+
+            # With dependency injection (testing)
+            os = LLMOS(
+                event_bus=mock_event_bus,
+                token_economy=mock_token_economy
+            )
         """
-        self.workspace = workspace or Path("./workspace")
+        # Use config or create from parameters
+        if config is None:
+            config = LLMOSConfig(
+                workspace=workspace or Path("./workspace"),
+                kernel=__import__('kernel.config', fromlist=['KernelConfig']).KernelConfig(
+                    budget_usd=budget_usd
+                )
+            )
+
+        self.config = config
+        self.workspace = config.workspace
         self.workspace.mkdir(exist_ok=True)
 
-        # Initialize kernel components
-        self.event_bus = EventBus()
-        self.token_economy = TokenEconomy(budget_usd)
-        self.scheduler = Scheduler(self.event_bus)
-        self.watchdog = Watchdog(self.event_bus)
+        # Initialize kernel components (use injected or create defaults)
+        self.event_bus = event_bus or create_event_bus()
+        self.token_economy = token_economy or create_token_economy(config.kernel.budget_usd)
+        self.scheduler = scheduler or create_scheduler(self.event_bus)
+        self.watchdog = watchdog or create_watchdog(self.event_bus)
 
-        # Initialize memory components (SDK-based, using /memories directory)
-        self.memory_store = MemoryStore(self.workspace)
-        self.trace_manager = TraceManager(
-            memories_dir=self.workspace / "memories",
-            workspace=self.workspace,
-            enable_llm_matching=True  # Enable LLM-based semantic matching
+        # Initialize memory components (use injected or create defaults)
+        self.memory_store = memory_store or create_memory_store(self.workspace)
+        self.trace_manager = trace_manager or create_trace_manager(
+            self.workspace,
+            enable_llm_matching=config.memory.enable_llm_matching
         )
-        self.memory_query = MemoryQueryInterface(self.trace_manager, self.memory_store)
+        self.memory_query = memory_query or create_memory_query(
+            self.trace_manager,
+            self.memory_store
+        )
 
-        # Initialize Phase 2 components
-        self.project_manager = ProjectManager(self.workspace)
-        self.agent_factory = AgentFactory(self.workspace)
-        self.component_registry = ComponentRegistry()
-
-        # Initialize cross-project learning (Phase 2 enhancement)
-        self.cross_project_learning = CrossProjectLearning(
-            project_manager=self.project_manager,
-            workspace=self.workspace
+        # Initialize Phase 2 components (use injected or create defaults)
+        self.project_manager = project_manager or create_project_manager(self.workspace)
+        self.agent_factory = agent_factory or create_agent_factory(self.workspace)
+        self.component_registry = component_registry or create_component_registry()
+        self.cross_project_learning = cross_project_learning or create_cross_project_learning(
+            self.project_manager,
+            self.workspace
         )
 
         # Register built-in agents
@@ -92,14 +160,15 @@ class LLMOS:
         if project_name:
             self.current_project = self.project_manager.create_project(project_name)
 
-        # Initialize dispatcher with all components
-        self.dispatcher = Dispatcher(
+        # Initialize dispatcher (use injected or create default)
+        self.dispatcher = dispatcher or create_dispatcher(
             event_bus=self.event_bus,
             token_economy=self.token_economy,
             memory_store=self.memory_store,
             trace_manager=self.trace_manager,
             project_manager=self.project_manager,
-            workspace=self.workspace
+            workspace=self.workspace,
+            config=self.config
         )
 
         self._running = False

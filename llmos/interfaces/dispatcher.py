@@ -9,6 +9,12 @@ from pathlib import Path
 from kernel.bus import EventBus
 from kernel.token_economy import TokenEconomy, LowBatteryError
 from kernel.project_manager import ProjectManager, Project
+from kernel.config import LLMOSConfig
+from kernel.mode_strategies import (
+    ModeSelectionStrategy,
+    ModeContext,
+    get_strategy
+)
 from memory.store_sdk import MemoryStore
 from memory.traces_sdk import TraceManager, ExecutionTrace
 from memory.query_sdk import MemoryQueryInterface
@@ -55,7 +61,9 @@ class Dispatcher:
         memory_store: MemoryStore,
         trace_manager: TraceManager,
         project_manager: Optional[ProjectManager] = None,
-        workspace: Optional[Path] = None
+        workspace: Optional[Path] = None,
+        config: Optional[LLMOSConfig] = None,
+        strategy: Optional[ModeSelectionStrategy] = None
     ):
         self.event_bus = event_bus
         self.token_economy = token_economy
@@ -63,6 +71,10 @@ class Dispatcher:
         self.trace_manager = trace_manager
         self.project_manager = project_manager
         self.workspace = workspace or Path("./workspace")
+
+        # Configuration and strategy
+        self.config = config or LLMOSConfig()
+        self.strategy = strategy or get_strategy("auto")
 
         # Initialize cortex (will be lazy-loaded)
         self.cortex: Cortex = None
@@ -166,15 +178,16 @@ class Dispatcher:
 
     async def _determine_mode(self, goal: str) -> str:
         """
-        Automatically determine the best execution mode
+        Automatically determine the best execution mode using Strategy pattern
 
-        Uses LLM-based semantic matching to find traces, with fallback to hash matching.
+        Uses the configured mode selection strategy to determine the optimal
+        execution mode based on available traces, complexity, and configuration.
 
         Execution modes:
         - CRYSTALLIZED: Trace has been converted to tool - Execute tool directly
-        - FOLLOWER: High confidence (≥0.92) - Execute proven trace directly
-        - MIXED: Medium confidence (0.75-0.92) - Use trace as few-shot guidance
-        - LEARNER: Low confidence (<0.75) - Full LLM reasoning
+        - FOLLOWER: High confidence - Execute proven trace directly
+        - MIXED: Medium confidence - Use trace as few-shot guidance
+        - LEARNER: Low confidence - Full LLM reasoning
         - ORCHESTRATOR: Complex multi-agent task
 
         Args:
@@ -183,47 +196,35 @@ class Dispatcher:
         Returns:
             Mode string: "CRYSTALLIZED", "FOLLOWER", "MIXED", "LEARNER", or "ORCHESTRATOR"
         """
-        # Try LLM-based smart trace finding first
-        trace, confidence, recommended_mode = await self.trace_manager.find_trace_smart(goal)
+        # Use strategy pattern for mode selection
+        context = ModeContext(
+            goal=goal,
+            trace_manager=self.trace_manager,
+            config=self.config
+        )
 
-        if trace and confidence >= 0.75:
-            # Check if trace has been crystallized into a tool
-            if trace.crystallized_into_tool:
-                print(f"💎 Crystallized tool found: {trace.crystallized_into_tool}")
-                print(f"   Instant execution - no LLM cost!")
-                return "CRYSTALLIZED"
+        decision = await self.strategy.determine_mode(context)
 
-            if confidence >= 0.92:
-                print(f"📦 High-confidence trace match ({confidence:.0%}) - using FOLLOWER mode")
-                print(f"   Success rate: {trace.success_rating:.0%}, Used {trace.usage_count} times")
+        # Log decision
+        if decision.trace:
+            if decision.mode == "CRYSTALLIZED":
+                print(f"💎 Crystallized tool: {decision.trace.crystallized_into_tool}")
+                print(f"   {decision.reasoning}")
+            elif decision.mode == "FOLLOWER":
+                print(f"📦 Trace replay (confidence: {decision.confidence:.0%})")
+                print(f"   Success: {decision.trace.success_rating:.0%}, "
+                      f"Used: {decision.trace.usage_count}x")
+                print(f"   {decision.reasoning}")
+            elif decision.mode == "MIXED":
+                print(f"📝 Trace-guided (confidence: {decision.confidence:.0%})")
+                print(f"   {decision.reasoning}")
+        else:
+            if decision.mode == "ORCHESTRATOR":
+                print(f"🔀 {decision.reasoning}")
             else:
-                print(f"📝 Medium-confidence trace match ({confidence:.0%}) - using MIXED mode")
-                print(f"   Will use trace as guidance for LLM")
+                print(f"🆕 {decision.reasoning}")
 
-            return recommended_mode
-
-        # Check complexity indicators for ORCHESTRATOR mode
-        complexity_indicators = [
-            "and",  # Multiple tasks
-            "then",  # Sequential steps
-            "create a project",  # Project management
-            "analyze and",  # Multi-step analysis
-            "research",  # Complex investigation
-            "multiple",  # Multiple items
-            "coordinate",  # Coordination needed
-            "delegate",  # Delegation needed
-        ]
-
-        goal_lower = goal.lower()
-        complexity_score = sum(1 for indicator in complexity_indicators if indicator in goal_lower)
-
-        if complexity_score >= 2:
-            print(f"🔀 Complex task detected (complexity score: {complexity_score})")
-            return "ORCHESTRATOR"
-
-        # Default to LEARNER for novel, simple tasks
-        print("🆕 Novel task - using Learner mode")
-        return "LEARNER"
+        return decision.mode
 
     async def _dispatch_crystallized(self, goal: str) -> Dict[str, Any]:
         """
