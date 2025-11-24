@@ -117,14 +117,40 @@ llm-os/
 
 ## Quick Start
 
-See [llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md) for detailed instructions.
+### ⭐ Experience the Magic: Hybrid Architecture Demo
+
+See the system create its own agents in real-time:
+
+```bash
+# 1. Install dependencies
+pip install -r llmos/requirements.txt
+
+# 2. Set your API key
+export ANTHROPIC_API_KEY="your-key"
+
+# 3. Run the Hybrid Architecture demo
+python examples/hybrid_architecture_demo.py
+```
+
+**What you'll see:**
+1. List Markdown-defined agents (`workspace/agents/*.md`)
+2. **Watch the system create a new agent** by writing a file
+3. Use the newly created agent immediately (no restart!)
+4. System modifies the agent to add capabilities
+5. Inspect the Markdown files the system wrote
+
+**This is sci-fi made real** - you'll literally watch the AI write its own brain.
+
+### Alternative: Interactive CLI
+
+For a traditional CLI experience:
 
 ```bash
 cd llmos
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY="your-key"
 python boot.py interactive
 ```
+
+See [llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md) for detailed instructions.
 
 ## Documentation
 
@@ -136,20 +162,21 @@ python boot.py interactive
 
 ### Examples
 - **[examples/README.md](examples/README.md)** - Examples overview and navigation guide
-- **[examples/qiskit_studio_backend/](examples/qiskit_studio_backend/)** - Flagship: Quantum computing backend
-  - Drop-in replacement for [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend
-  - Demonstrates production-grade LLM OS architecture
+- **⭐ [examples/hybrid_architecture_demo.py](examples/hybrid_architecture_demo.py)** - THE flagship demo
+  - Watch the system create and modify its own agents
+  - 5 interactive demonstrations of self-modification
+  - **Start here to understand v3.2.0**
+- **[examples/qiskit_studio_backend/](examples/qiskit_studio_backend/)** - Production case study
+  - Drop-in replacement for [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend (3 microservices → 1)
   - 100% cost savings on repeated tasks via Learner→Follower
-- **[examples/q-kids-studio/](examples/q-kids-studio/)** - Educational quantum platform (ages 8-12)
+- **[examples/q-kids-studio/](examples/q-kids-studio/)** - Educational platform (ages 8-12)
   - Block-based quantum programming with gamification
-  - Multi-layer safety for kids
   - 99%+ cost savings via Learner→Follower caching
-- **[examples/robo-os/](examples/robo-os/)** - Robot control with LLM as brain
-  - Natural language robot control
-  - Multi-layer safety hooks (PreToolUse validation)
-  - Operator + Safety Officer multi-agent coordination
-- **[examples/demo-app/](examples/demo-app/)** - Rich terminal UI with 7 demo scenarios
-- **[examples/multi_agent_example.py](examples/multi_agent_example.py)** - 12 interactive examples of Phase 2/2.5 features
+- **[examples/robo-os/](examples/robo-os/)** - Robot control system
+  - Natural language robot control with multi-layer safety
+- **[examples/demo-app/](examples/demo-app/)** - Feature showcase
+  - Rich terminal UI with 7 demo scenarios
+- **[examples/legacy/](examples/legacy/)** - Programmatic agent examples (archived)
 
 ## Architecture Highlights
 
@@ -247,7 +274,24 @@ economy.deduct(0.45, "Learn: Create script")
 
 ## Examples & Use Cases
 
-### 🌟 Flagship Example: Qiskit Studio Backend
+### ⭐ The Magic: Hybrid Architecture Demo
+
+**Watch the system create its own agents**
+
+This is **the** example to see first. Run `python examples/hybrid_architecture_demo.py` and watch in real-time as:
+1. The system lists its Markdown-defined agents
+2. **Creates a new haiku-poet agent by writing a `.md` file**
+3. Uses the new agent immediately (zero restart time)
+4. Modifies the agent to add ASCII art capabilities
+5. Shows you the actual Markdown files it wrote
+
+**Why this is amazing**: You're watching an AI write its own source code (agent definitions) and use them instantly. This is self-modification in action.
+
+See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for the full architecture.
+
+---
+
+### 🏭 Production Example: Qiskit Studio Backend
 
 **LLM OS as a drop-in replacement for complex microservice architectures**
 
