@@ -151,6 +151,62 @@ class SystemAgent:
         })
 
         try:
+            # Fast-path: Detect simple tool calls and handle directly
+            # Pattern: "Use the X tool to Y" or "Call the X tool"
+            import re
+            tool_call_pattern = r"(?:use|call|execute)\s+(?:the\s+)?(\w+)(?:_tool|\s+tool)"
+            match = re.search(tool_call_pattern, goal.lower())
+
+            if match and len(goal.split()) < 20:  # Simple, short requests
+                tool_name = match.group(1)
+                state.log_event("FAST_PATH_DETECTED", {
+                    "tool": tool_name,
+                    "reason": "Simple tool call - skipping decomposition"
+                })
+
+                # Execute directly without decomposition
+                options = ClaudeAgentOptions(
+                    model=self.model,
+                    cwd=str(project.root_path),
+                    permission_mode="acceptEdits"
+                )
+
+                total_cost = 0.0
+                output_text = ""
+
+                async with ClaudeSDKClient(options=options) as client:
+                    await client.query(goal)
+
+                    async for msg in client.receive_response():
+                        if hasattr(msg, "content"):
+                            for block in msg.content:
+                                if hasattr(block, "text"):
+                                    output_text += block.text + "\n"
+
+                        if hasattr(msg, "total_cost_usd"):
+                            total_cost = msg.total_cost_usd or 0.0
+
+                        if "Result" in msg.__class__.__name__:
+                            break
+
+                execution_time = time.time() - start_time
+                state.mark_execution_complete(success=True)
+
+                await self.event_bus.publish(Event(
+                    type=EventType.TASK_COMPLETED,
+                    data={"goal": goal, "fast_path": True}
+                ))
+
+                return OrchestrationResult(
+                    success=True,
+                    output=output_text.strip(),
+                    steps_completed=1,
+                    total_steps=1,
+                    cost_usd=total_cost,
+                    execution_time_secs=execution_time,
+                    state_summary={"fast_path": True, "tool": tool_name}
+                )
+
             # Step 1: Consult memory
             state.log_event("MEMORY_CONSULTATION", {"phase": "started"})
             memory_insights = await self._consult_memory(goal)

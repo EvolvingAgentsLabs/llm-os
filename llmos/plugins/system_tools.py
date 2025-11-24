@@ -123,7 +123,7 @@ async def create_agent(
 
     # Create agent definition content
     content = f"""---
-name: {name}
+agent_name: {name}
 description: {description}
 tools: {json.dumps(tools)}
 model: sonnet

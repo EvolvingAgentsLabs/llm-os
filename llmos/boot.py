@@ -396,7 +396,7 @@ class LLMOS:
 
         # Save state
         print(f"💾 Final Balance: ${self.token_economy.balance:.2f}")
-        print(f"📊 Total Spent: ${sum(log['cost'] for log in self.token_economy.spend_log):.2f}")
+        print(f"📊 Total Spent: ${sum(log.cost for log in self.token_economy.spend_log):.2f}")
 
         print("✅ Shutdown complete")
 

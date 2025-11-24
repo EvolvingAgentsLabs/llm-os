@@ -1,5 +1,5 @@
 ---
-name: data-analyst
+agent_name: data-analyst
 description: Analyzes datasets, creates visualizations, and extracts insights. Use for data exploration, statistical analysis, or reporting tasks.
 tools: ["Read", "Write", "Bash"]
 model: sonnet
