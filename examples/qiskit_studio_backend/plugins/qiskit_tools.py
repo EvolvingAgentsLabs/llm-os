@@ -16,9 +16,12 @@ from typing import Optional, Dict, Any
 # Import the llm_tool decorator from the parent llmos plugins
 # We need to add the llmos path to sys.path
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parents[3] / "llmos"))
+LLMOS_ROOT = Path(__file__).parents[3]  # Go up to llm-os root
+if (LLMOS_ROOT / "llmos").exists():
+    sys.path.insert(0, str(LLMOS_ROOT))  # Add llm-os root to path
 
-from plugins import llm_tool
+# Import from llmos.plugins to avoid circular import
+from llmos.plugins import llm_tool
 
 # Configure logging
 logging.basicConfig(

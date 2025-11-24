@@ -25,9 +25,13 @@ import logging
 import json
 from typing import Optional, Dict, Any, List
 
-# Add llmos to path
-LLMOS_ROOT = Path(__file__).parents[2] / "llmos"
-sys.path.insert(0, str(LLMOS_ROOT))
+# Add llmos to path - support both standalone and in-tree execution
+LLMOS_ROOT = Path(__file__).parents[2]  # Go up to llm-os root
+if (LLMOS_ROOT / "llmos").exists():
+    sys.path.insert(0, str(LLMOS_ROOT))  # Add llm-os root to path
+else:
+    # Fallback: assume llmos is already in path or installed
+    pass
 
 from boot import LLMOS
 from kernel.component_registry import ComponentRegistry
