@@ -27,6 +27,7 @@ class ExecutionTrace:
     created_at: Optional[str] = None
     estimated_cost_usd: float = 0.0
     estimated_time_secs: float = 0.0
+    crystallized_into_tool: Optional[str] = None  # Name of generated tool (HOPE architecture)
 
     def __post_init__(self):
         if self.created_at is None:

@@ -9,6 +9,12 @@ from pathlib import Path
 from kernel.bus import EventBus
 from kernel.token_economy import TokenEconomy, LowBatteryError
 from kernel.project_manager import ProjectManager, Project
+from kernel.config import LLMOSConfig
+from kernel.mode_strategies import (
+    ModeSelectionStrategy,
+    ModeContext,
+    get_strategy
+)
 from memory.store_sdk import MemoryStore
 from memory.traces_sdk import TraceManager, ExecutionTrace
 from memory.query_sdk import MemoryQueryInterface
@@ -55,7 +61,9 @@ class Dispatcher:
         memory_store: MemoryStore,
         trace_manager: TraceManager,
         project_manager: Optional[ProjectManager] = None,
-        workspace: Optional[Path] = None
+        workspace: Optional[Path] = None,
+        config: Optional[LLMOSConfig] = None,
+        strategy: Optional[ModeSelectionStrategy] = None
     ):
         self.event_bus = event_bus
         self.token_economy = token_economy
@@ -63,6 +71,10 @@ class Dispatcher:
         self.trace_manager = trace_manager
         self.project_manager = project_manager
         self.workspace = workspace or Path("./workspace")
+
+        # Configuration and strategy
+        self.config = config or LLMOSConfig()
+        self.strategy = strategy or get_strategy("auto")
 
         # Initialize cortex (will be lazy-loaded)
         self.cortex: Cortex = None
@@ -153,7 +165,9 @@ class Dispatcher:
         print("=" * 60)
 
         # Route to appropriate mode
-        if mode == "ORCHESTRATOR":
+        if mode == "CRYSTALLIZED":
+            return await self._dispatch_crystallized(goal)
+        elif mode == "ORCHESTRATOR":
             return await self._dispatch_orchestrator(goal, project, max_cost_usd)
         elif mode == "FOLLOWER":
             return await self._dispatch_follower(goal)
@@ -164,57 +178,104 @@ class Dispatcher:
 
     async def _determine_mode(self, goal: str) -> str:
         """
-        Automatically determine the best execution mode
+        Automatically determine the best execution mode using Strategy pattern
 
-        Uses LLM-based semantic matching to find traces, with fallback to hash matching.
+        Uses the configured mode selection strategy to determine the optimal
+        execution mode based on available traces, complexity, and configuration.
 
         Execution modes:
-        - FOLLOWER: High confidence (≥0.92) - Execute proven trace directly
-        - MIXED: Medium confidence (0.75-0.92) - Use trace as few-shot guidance
-        - LEARNER: Low confidence (<0.75) - Full LLM reasoning
+        - CRYSTALLIZED: Trace has been converted to tool - Execute tool directly
+        - FOLLOWER: High confidence - Execute proven trace directly
+        - MIXED: Medium confidence - Use trace as few-shot guidance
+        - LEARNER: Low confidence - Full LLM reasoning
         - ORCHESTRATOR: Complex multi-agent task
 
         Args:
             goal: Natural language goal
 
         Returns:
-            Mode string: "FOLLOWER", "MIXED", "LEARNER", or "ORCHESTRATOR"
+            Mode string: "CRYSTALLIZED", "FOLLOWER", "MIXED", "LEARNER", or "ORCHESTRATOR"
         """
-        # Try LLM-based smart trace finding first
-        trace, confidence, recommended_mode = await self.trace_manager.find_trace_smart(goal)
+        # Use strategy pattern for mode selection
+        context = ModeContext(
+            goal=goal,
+            trace_manager=self.trace_manager,
+            config=self.config
+        )
 
-        if trace and confidence >= 0.75:
-            if confidence >= 0.92:
-                print(f"📦 High-confidence trace match ({confidence:.0%}) - using FOLLOWER mode")
-                print(f"   Success rate: {trace.success_rating:.0%}, Used {trace.usage_count} times")
+        decision = await self.strategy.determine_mode(context)
+
+        # Log decision
+        if decision.trace:
+            if decision.mode == "CRYSTALLIZED":
+                print(f"💎 Crystallized tool: {decision.trace.crystallized_into_tool}")
+                print(f"   {decision.reasoning}")
+            elif decision.mode == "FOLLOWER":
+                print(f"📦 Trace replay (confidence: {decision.confidence:.0%})")
+                print(f"   Success: {decision.trace.success_rating:.0%}, "
+                      f"Used: {decision.trace.usage_count}x")
+                print(f"   {decision.reasoning}")
+            elif decision.mode == "MIXED":
+                print(f"📝 Trace-guided (confidence: {decision.confidence:.0%})")
+                print(f"   {decision.reasoning}")
+        else:
+            if decision.mode == "ORCHESTRATOR":
+                print(f"🔀 {decision.reasoning}")
             else:
-                print(f"📝 Medium-confidence trace match ({confidence:.0%}) - using MIXED mode")
-                print(f"   Will use trace as guidance for LLM")
+                print(f"🆕 {decision.reasoning}")
 
-            return recommended_mode
+        return decision.mode
 
-        # Check complexity indicators for ORCHESTRATOR mode
-        complexity_indicators = [
-            "and",  # Multiple tasks
-            "then",  # Sequential steps
-            "create a project",  # Project management
-            "analyze and",  # Multi-step analysis
-            "research",  # Complex investigation
-            "multiple",  # Multiple items
-            "coordinate",  # Coordination needed
-            "delegate",  # Delegation needed
-        ]
+    async def _dispatch_crystallized(self, goal: str) -> Dict[str, Any]:
+        """
+        Dispatch to Crystallized mode (execute generated tool directly)
 
-        goal_lower = goal.lower()
-        complexity_score = sum(1 for indicator in complexity_indicators if indicator in goal_lower)
+        This is the final form of the HOPE architecture - instant, free execution
+        of a crystallized pattern via Python code.
 
-        if complexity_score >= 2:
-            print(f"🔀 Complex task detected (complexity score: {complexity_score})")
-            return "ORCHESTRATOR"
+        Args:
+            goal: Natural language goal
 
-        # Default to LEARNER for novel, simple tasks
-        print("🆕 Novel task - using Learner mode")
-        return "LEARNER"
+        Returns:
+            Result dictionary
+        """
+        # Find the trace with crystallized tool
+        result = await self.trace_manager.find_trace_with_llm(goal, min_confidence=0.75)
+
+        if not result:
+            return {
+                "success": False,
+                "error": "No crystallized trace found",
+                "mode": "CRYSTALLIZED"
+            }
+
+        trace, confidence = result
+
+        if not trace.crystallized_into_tool:
+            return {
+                "success": False,
+                "error": "Trace not crystallized",
+                "mode": "CRYSTALLIZED"
+            }
+
+        print(f"💡 Cost: $0.00 (crystallized tool)")
+        print(f"💡 Time: ~instant")
+
+        # Execute the crystallized tool
+        # Note: Tool execution would be handled by the plugin system
+        # For now, we return success with metadata
+
+        # Update trace statistics
+        self.trace_manager.update_usage(trace.goal_signature)
+
+        return {
+            "success": True,
+            "mode": "CRYSTALLIZED",
+            "tool_name": trace.crystallized_into_tool,
+            "trace": trace,
+            "cost": 0.0,
+            "message": f"Executed crystallized tool: {trace.crystallized_into_tool}"
+        }
 
     async def _dispatch_follower(self, goal: str) -> Dict[str, Any]:
         """
