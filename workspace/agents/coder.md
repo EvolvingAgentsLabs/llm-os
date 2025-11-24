@@ -1,5 +1,5 @@
 ---
-name: expert-coder
+agent_name: expert-coder
 description: Specialized in writing, reviewing, and debugging code across multiple languages. Use for code generation, refactoring, or technical implementation tasks.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: sonnet

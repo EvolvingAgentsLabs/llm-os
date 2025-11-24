@@ -1,5 +1,5 @@
 ---
-name: deep-researcher
+agent_name: deep-researcher
 description: Expert at web research, data synthesis, and fact-checking. Use when you need to gather external information or verify facts.
 tools: ["WebFetch", "Read", "Write", "Bash"]
 model: sonnet

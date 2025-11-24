@@ -41,7 +41,7 @@ async def demo_list_markdown_agents():
 
     result = await os_instance.execute(
         goal="Use the list_agents tool to show me all available agents",
-        mode="ORCHESTRATOR"
+        mode="AUTO"  # Let system choose optimal mode (LEARNER for simple tool calls)
     )
 
     print(f"\n{result.get('output', 'No output')}")
@@ -79,7 +79,7 @@ async def demo_create_new_agent():
 
     result = await os_instance.execute(
         goal=goal,
-        mode="ORCHESTRATOR"
+        mode="AUTO"  # Let system choose (LEARNER for simple tool calls)
     )
 
     print(f"\n✅ Result:\n{result.get('output', 'No output')}")
@@ -115,7 +115,7 @@ async def demo_use_newly_created_agent():
 
     result = await os_instance.execute(
         goal=goal,
-        mode="ORCHESTRATOR"
+        mode="ORCHESTRATOR"  # Requires delegation - keep ORCHESTRATOR mode
     )
 
     print(f"\n✅ Result:\n{result.get('output', 'No output')}")
@@ -155,7 +155,7 @@ async def demo_agent_evolution():
 
     result = await os_instance.execute(
         goal=goal,
-        mode="ORCHESTRATOR"
+        mode="AUTO"  # Let system choose (LEARNER for simple tool calls)
     )
 
     print(f"\n✅ Result:\n{result.get('output', 'No output')}")
