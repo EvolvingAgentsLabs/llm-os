@@ -235,6 +235,253 @@ The system can evolve itself through two levels:
 
 ---
 
+## HOPE Implementation (Phase 3.0)
+
+**HOPE** (Higher-Order Programming Evolution) takes the Hybrid Architecture to the next level through **crystallization** - converting frequently-used LLM patterns into permanent Python tools.
+
+### The Crystallization Process
+
+The system monitors execution traces and identifies patterns ready for crystallization:
+
+**Criteria**:
+- **Usage Count**: ≥ 5 uses (frequently needed)
+- **Success Rate**: ≥ 95% (stable and proven)
+- **Not Already Crystallized**: Prevents duplicate work
+
+**Priority Calculation**:
+```python
+priority = (
+    usage_count * 10 * 0.5 +       # 50% weight on frequency
+    cost_savings * 100 * 0.3 +     # 30% weight on cost savings
+    success_rate * 100 * 0.2       # 20% weight on reliability
+)
+```
+
+### Architecture Components
+
+#### 1. ExecutionTrace Enhancement
+
+**Location**: `llmos/memory/traces_sdk.py`
+
+```python
+crystallized_into_tool: Optional[str] = None  # Name of generated tool
+```
+
+When a trace is crystallized, this field stores the generated Python tool name.
+
+#### 2. Crystallization Candidate Identification
+
+**Location**: `llmos/memory/cross_project_sdk.py`
+
+**Method**: `identify_crystallization_candidates()`
+
+```python
+candidates = await cross_project.identify_crystallization_candidates(
+    min_usage=5,
+    min_success=0.95
+)
+
+for candidate in candidates:
+    print(f"Goal: {candidate['goal']}")
+    print(f"Usage: {candidate['usage_count']} times")
+    print(f"Priority: {candidate['crystallization_priority']:.1f}")
+```
+
+#### 3. Hot-Reload Plugin System
+
+**Location**: `llmos/plugins/__init__.py`
+
+**Methods**:
+- `load_plugin_dynamically(file_path)` - Load new plugin without restart
+- `reload_plugin(module_name)` - Reload existing plugin
+
+**Benefits**:
+- No system restart required
+- Instant tool availability
+- Seamless integration
+
+#### 4. Toolsmith Agent
+
+**Location**: `llmos/kernel/agent_factory.py`
+
+A specialized agent that generates Python plugin code:
+- Analyzes execution traces
+- Generates `@llm_tool` decorated functions
+- Includes error handling and type hints
+- Validates syntax using AST parsing
+- Saves to `llmos/plugins/generated/`
+
+**Safety Constraints**:
+- No dangerous imports (os.system, subprocess)
+- Input validation required
+- Exception handling mandatory
+- Workspace-scoped operations only
+
+#### 5. Crystallization Workflow
+
+**Location**: `llmos/interfaces/orchestrator.py`
+
+```
+1. Retrieve trace from memory
+   ↓
+2. Register Toolsmith agent
+   ↓
+3. Build crystallization prompt
+   ↓
+4. Delegate to Toolsmith via SDK
+   ↓
+5. Validate generated code (AST)
+   ↓
+6. Hot-load new tool
+   ↓
+7. Mark trace as crystallized
+```
+
+**Usage**:
+```python
+tool_name = await orchestrator.crystallize_pattern(
+    trace_signature="abc123def456",
+    plugin_loader=plugin_loader
+)
+# Result: llmos/plugins/generated/tool_abc123def456.py
+```
+
+#### 6. Execution Mode Hierarchy
+
+**Location**: `llmos/interfaces/dispatcher.py`
+
+The dispatcher now supports five execution modes:
+
+| Mode | Cost | Latency | Intelligence | Use Case |
+|------|------|---------|--------------|----------|
+| **CRYSTALLIZED** | **$0.00** | **<1s** | **Crystallized** | Frequent, proven patterns |
+| FOLLOWER | $0.00 | 2-5s | Replay | High-confidence traces |
+| MIXED | ~$0.25 | 5-15s | Guided | Medium-confidence traces |
+| LEARNER | ~$0.50 | 10-30s | Full LLM | New tasks |
+| ORCHESTRATOR | Variable | Variable | Multi-agent | Complex workflows |
+
+**Mode Selection**:
+```python
+if trace.crystallized_into_tool:
+    return "CRYSTALLIZED"  # Instant, free
+elif confidence >= 0.92:
+    return "FOLLOWER"      # Zero-cost replay
+elif confidence >= 0.75:
+    return "MIXED"         # Few-shot guidance
+else:
+    return "LEARNER"       # Full reasoning
+```
+
+### The Evolution Timeline
+
+#### Before Crystallization
+```
+User: "Create API endpoint"
+  ↓
+Dispatcher → LEARNER mode
+  ↓
+LLM reasons through steps (cost: $0.50, time: 15s)
+  ↓
+Trace saved to memory
+  ↓
+Usage: 1, Success: 100%
+```
+
+#### After 5 Uses
+```
+User: "Create API endpoint"
+  ↓
+Dispatcher → FOLLOWER mode
+  ↓
+Replay trace (cost: $0.00, time: 3s)
+  ↓
+Usage: 5, Success: 100%
+  ↓
+Candidate for crystallization!
+```
+
+#### After Crystallization
+```
+User: "Create API endpoint"
+  ↓
+Dispatcher → CRYSTALLIZED mode
+  ↓
+Execute tool_abc123.py (cost: $0.00, time: <1s)
+  ↓
+Pure Python execution - instant, free, permanent
+```
+
+### Benefits
+
+**1. Performance**
+- 10-30x faster than LLM reasoning
+- Sub-second execution for common tasks
+- No API latency
+
+**2. Cost Savings**
+- $0.00 for crystallized tasks
+- Break-even after ~2 uses
+- Example: 10 uses × $0.50 = $5.00 saved
+
+**3. System Evolution**
+- System writes its own code
+- Automatic optimization over time
+- Permanent knowledge capture
+
+### The Complete Hybrid Stack
+
+```
+┌─────────────────────────────────────────┐
+│   Markdown Mind (Cognitive Layer)       │
+│   workspace/agents/*.md                 │
+│   - Flexible, self-modifiable           │
+│   - Hot-reloadable                      │
+│   - Human-readable                      │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│   Python Kernel (Somatic Layer)         │
+│   llmos/                                │
+│   - Type-safe, performant               │
+│   - Secure execution                    │
+│   - Production-ready                    │
+└─────────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────────┐
+│   Crystallized Intelligence             │
+│   llmos/plugins/generated/              │
+│   - Instant execution                   │
+│   - Zero cost                           │
+│   - Self-generated                      │
+└─────────────────────────────────────────┘
+```
+
+### Future Enhancements
+
+**1. Automatic Crystallization**
+```python
+# Background job in Scheduler
+async def auto_crystallize():
+    candidates = await identify_crystallization_candidates()
+    for candidate in candidates[:3]:  # Top 3
+        await orchestrator.crystallize_pattern(candidate['signature'])
+```
+
+**2. Tool Evolution**
+```python
+if trace.success_rating > crystallized_tool.version_rating + 0.05:
+    # Re-crystallize with improved pattern
+    await orchestrator.crystallize_pattern(trace.signature)
+```
+
+**3. Cross-Project Tool Sharing**
+```python
+# Export tool to shared library
+await export_tool(tool_name, target_project="all")
+```
+
+---
+
 ## Example Scenarios
 
 ### Scenario 1: Create Specialized Agent
@@ -526,6 +773,14 @@ To add a new system agent:
 
 ---
 
-**Version**: 3.2.0
+**Version**: 3.2.0 (includes HOPE Phase 3.0)
 **Last Updated**: 2025-11-23
 **Status**: Production Ready ✅
+
+## Architecture Evolution
+
+- **Phase 1**: Hash-based exact matching
+- **Phase 2**: Claude SDK integration, projects, cross-project learning
+- **Phase 2.5**: Semantic matching, SDK hooks, streaming
+- **Phase 3.0**: HOPE - Self-modifying kernel with crystallization
+- **Current**: Hybrid Architecture - Markdown Mind + Python Kernel + Crystallization

@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Example - Demonstrates Phase 2 capabilities
+Multi-Agent Example - Demonstrates Phase 2 capabilities + Hybrid Architecture (v3.2.0)
+
+NEW in v3.2.0 - Hybrid Architecture:
+- Agents can be defined in Markdown files (workspace/agents/*.md) OR programmatically (Python)
+- This example shows PROGRAMMATIC agent creation using Python AgentSpec
+- For MARKDOWN agent examples, see: examples/hybrid_architecture_demo.py
+- For full Hybrid Architecture docs, see: ../HYBRID_ARCHITECTURE.md
 
 This example shows how to use llmos with:
-- Project management
-- Dynamic agent creation
+- Project management (llmunix-style)
+- Dynamic agent creation (programmatic Python approach)
 - Multi-agent orchestration
 - Memory query interface
+- Cross-project learning
+- SDK hooks and streaming
 """
 
 import asyncio
