@@ -79,17 +79,18 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 ### Prerequisites
 
 - Python 3.10+
+- Node.js 18+ (for frontend)
 - Anthropic API key (for Claude)
 - (Optional) IBM Quantum API token for real quantum hardware
 
 ### Installation
 
-1. **Clone the repository** (if not already done):
+1. **Navigate to the project**:
    ```bash
-   cd llm-os/llmos/examples/qiskit_studio_backend
+   cd llm-os/examples/qiskit_studio_backend
    ```
 
-2. **Set up environment**:
+2. **Set up backend environment**:
    ```bash
    # Create .env from template
    cp .env.template .env
@@ -118,7 +119,31 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 
 The backend will start on `http://localhost:8000`
 
-### Connect to Qiskit Studio Frontend
+### Run the Included Frontend
+
+This project includes a complete Next.js frontend (copied from qiskit-studio):
+
+1. **Set up frontend**:
+   ```bash
+   cd frontend
+
+   # Create .env.local from template
+   cp .env.local.template .env.local
+
+   # Install dependencies
+   npm install
+   ```
+
+2. **Run the frontend**:
+   ```bash
+   npm run dev
+   ```
+
+3. **Open in browser**: `http://localhost:3000`
+
+### Alternative: Connect to External Qiskit Studio Frontend
+
+If you prefer to use a separate qiskit-studio installation:
 
 1. **Clone Qiskit Studio frontend** (in a separate directory):
    ```bash
@@ -228,32 +253,43 @@ The bridge server automatically routes requests:
 
 **Purpose**: Chat and code generation (replaces both `chat-agent` and `codegen-agent`)
 
-**Request**:
+**Request formats** (both are supported):
 ```json
+// Standard format
 {
   "messages": [
-    {
-      "role": "user",
-      "content": "Create a 3-qubit GHZ state and measure it"
-    }
+    {"role": "user", "content": "Create a 3-qubit GHZ state"}
   ],
+  "session_id": "optional-session-id"
+}
+
+// Maestro format (compatible with original qiskit-studio)
+{
+  "input_value": "Create a 3-qubit GHZ state",
+  "prompt": "Create a 3-qubit GHZ state",
   "session_id": "optional-session-id"
 }
 ```
 
-**Response**:
+**Response** (Maestro-compatible format):
 ```json
 {
-  "role": "assistant",
-  "content": "```python\nfrom qiskit import QuantumCircuit\n...\n```",
-  "metadata": {
-    "agent": "quantum-architect",
-    "mode": "LEARNER",
-    "cost": 0.0234,
-    "cached": false,
-    "session_id": "default"
-  }
+  "response": "{\"final_prompt\": \"...\", \"agent\": \"quantum-architect\", \"mode\": \"AUTO\", \"cost\": 0.0234, \"cached\": false}",
+  "output": "```python\nfrom qiskit import QuantumCircuit\n...\n```"
 }
+```
+
+### POST `/chat/stream`
+
+**Purpose**: Streaming chat using Server-Sent Events (SSE)
+
+**Request**: Same format as `/chat`
+
+**Response**: SSE stream
+```
+data: {"step_name": "llm_step", "step_result": "Here is your quantum circuit..."}
+
+data: [DONE]
 ```
 
 ### POST `/run`
@@ -471,11 +507,11 @@ LLMOS_BUDGET_USD=100.0 python server.py
 
 ```
 qiskit_studio_backend/
-├── server.py              # FastAPI bridge server
+├── server.py              # FastAPI bridge server (unified backend)
 ├── config.py              # Configuration management
 ├── requirements.txt       # Python dependencies
 ├── run.sh                # Startup script
-├── .env.template         # Environment template
+├── .env.template         # Backend environment template
 │
 ├── agents/               # Specialized quantum agents
 │   ├── __init__.py
@@ -486,8 +522,20 @@ qiskit_studio_backend/
 │   ├── __init__.py
 │   └── qiskit_tools.py         # execute_qiskit_code, validate
 │
-└── memory/               # Knowledge base (optional)
-    └── qiskit_docs/            # Qiskit documentation for RAG
+├── memory/               # Knowledge base (optional)
+│   └── qiskit_docs/            # Qiskit documentation for RAG
+│
+└── frontend/             # Next.js Qiskit Studio UI
+    ├── app/                    # Next.js app directory
+    ├── components/             # React components
+    │   ├── nodes/             # Quantum computing nodes
+    │   └── ui/                # UI components
+    ├── hooks/                  # React hooks (AI code generation)
+    ├── lib/                    # Utility functions & API service
+    ├── public/                 # Static assets
+    ├── .env.local.template    # Frontend environment template
+    ├── package.json           # Node dependencies
+    └── tsconfig.json          # TypeScript config
 ```
 
 ### Adding New Agents
