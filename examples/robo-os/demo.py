@@ -14,16 +14,48 @@ Run this to see LLM OS controlling a simulated robotic arm!
 import asyncio
 import sys
 import os
+from pathlib import Path
 
 # Add parent directories to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from boot.llm_os import LLMOS
+from kernel.agent_loader import AgentLoader
 from plugins.robot_controller import ROBOT_CONTROLLER_TOOLS
-from agents.operator import OPERATOR_AGENT_CONFIG
-from agents.safety_officer import SAFETY_OFFICER_CONFIG
 from robot_state import get_robot_state, reset_robot_state
 from safety_hook import get_safety_hook
+
+# Agents directory path (Markdown agents)
+AGENTS_DIR = Path(__file__).parent / "workspace" / "agents"
+
+# Global agent loader
+agent_loader = AgentLoader(agents_dir=str(AGENTS_DIR))
+
+
+def get_operator_config():
+    """Load operator agent configuration from Markdown."""
+    agent_def = agent_loader.load_agent("operator")
+    if not agent_def:
+        raise RuntimeError("Failed to load operator agent from workspace/agents/operator.md")
+    return {
+        'name': agent_def.name,
+        'mode': agent_def.metadata.get("mode", "learner"),
+        'system_prompt': agent_def.system_prompt,
+        'tools': agent_def.tools
+    }
+
+
+def get_safety_officer_config():
+    """Load safety officer agent configuration from Markdown."""
+    agent_def = agent_loader.load_agent("safety-officer")
+    if not agent_def:
+        raise RuntimeError("Failed to load safety officer agent from workspace/agents/safety-officer.md")
+    return {
+        'name': agent_def.name,
+        'mode': agent_def.metadata.get("mode", "learner"),
+        'system_prompt': agent_def.system_prompt,
+        'tools': agent_def.tools
+    }
 
 
 def print_header(text):
@@ -59,11 +91,14 @@ async def demo_basic_operation():
             description=tool['description']
         )
 
+    # Load operator config from Markdown
+    operator_config = get_operator_config()
+
     # Create operator agent
     agent = llmos.create_agent(
-        name=OPERATOR_AGENT_CONFIG['name'],
-        mode=OPERATOR_AGENT_CONFIG['mode'],
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
+        name=operator_config['name'],
+        mode=operator_config['mode'],
+        system_prompt=operator_config['system_prompt']
     )
 
     print("Operator Agent created. Let's give it some commands!\n")
@@ -110,11 +145,14 @@ async def demo_safety_hook():
     # Register safety hook
     llmos.register_hook('pre_tool_use', safety_hook)
 
+    # Load operator config from Markdown
+    operator_config = get_operator_config()
+
     # Create operator agent
     agent = llmos.create_agent(
-        name=OPERATOR_AGENT_CONFIG['name'],
+        name=operator_config['name'],
         mode='learner',
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
+        system_prompt=operator_config['system_prompt']
     )
 
     print("Safety hook registered. Now let's try some dangerous commands!\n")
@@ -171,20 +209,23 @@ async def demo_multi_agent():
             description=tool['description']
         )
 
+    # Load agent configs from Markdown
+    operator_config = get_operator_config()
+    safety_config = get_safety_officer_config()
+
     # Create both agents
     operator = llmos.create_agent(
-        name=OPERATOR_AGENT_CONFIG['name'],
+        name=operator_config['name'],
         mode='learner',
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
+        system_prompt=operator_config['system_prompt']
     )
 
-    # Safety officer only gets monitoring tools
-    safety_tools = ['get_status', 'get_camera_feed', 'emergency_stop']
+    # Safety officer only gets monitoring tools (defined in markdown)
     safety_officer = llmos.create_agent(
-        name=SAFETY_OFFICER_CONFIG['name'],
+        name=safety_config['name'],
         mode='learner',
-        system_prompt=SAFETY_OFFICER_CONFIG['system_prompt'],
-        available_tools=safety_tools
+        system_prompt=safety_config['system_prompt'],
+        available_tools=safety_config['tools']
     )
 
     print("Two agents created:")
@@ -243,6 +284,9 @@ Let's simulate this...
             description=tool['description']
         )
 
+    # Load operator config from Markdown
+    operator_config = get_operator_config()
+
     # Create agent in LEARNER mode first
     print_section("First Execution: LEARNER MODE")
     print("Creating agent in LEARNER mode...")
@@ -250,7 +294,7 @@ Let's simulate this...
     agent = llmos.create_agent(
         name='operator_learner',
         mode='learner',  # Learn the task
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
+        system_prompt=operator_config['system_prompt']
     )
 
     task = "Pick up an object at (1.5, 1.0, 0.5) and place it at (-1.0, -1.0, 0.7)"
@@ -303,11 +347,14 @@ async def interactive_mode():
     # Register safety hook
     llmos.register_hook('pre_tool_use', get_safety_hook())
 
+    # Load operator config from Markdown
+    operator_config = get_operator_config()
+
     # Create operator agent
     agent = llmos.create_agent(
-        name=OPERATOR_AGENT_CONFIG['name'],
+        name=operator_config['name'],
         mode='learner',
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
+        system_prompt=operator_config['system_prompt']
     )
 
     print("""

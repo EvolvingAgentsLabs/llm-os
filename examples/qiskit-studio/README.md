@@ -1,6 +1,6 @@
-# Qiskit Studio Backend - LLM OS Edition
+# Qiskit Studio - LLM OS Edition
 
-> **A flagship example of LLM OS as a drop-in replacement for complex multi-agent microservice architectures.**
+> **A flagship example of LLM OS using the Hybrid Architecture with Markdown Agents.**
 
 This project reimplements the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using **LLM OS**, demonstrating how a unified operating system for LLMs can replace multiple specialized microservices while providing superior memory management, cost efficiency, and security.
 
@@ -87,7 +87,7 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 
 1. **Navigate to the project**:
    ```bash
-   cd llm-os/examples/qiskit_studio_backend
+   cd llm-os/examples/qiskit-studio
    ```
 
 2. **Set up backend environment**:
@@ -506,17 +506,17 @@ LLMOS_BUDGET_USD=100.0 python server.py
 ### Project Structure
 
 ```
-qiskit_studio_backend/
+qiskit-studio/
 ├── server.py              # FastAPI bridge server (unified backend)
 ├── config.py              # Configuration management
 ├── requirements.txt       # Python dependencies
 ├── run.sh                # Startup script
 ├── .env.template         # Backend environment template
 │
-├── agents/               # Specialized quantum agents
-│   ├── __init__.py
-│   ├── quantum_architect.py    # Code generation agent
-│   └── quantum_tutor.py        # Q&A agent
+├── workspace/            # LLM OS workspace
+│   └── agents/           # Markdown agent definitions (Hybrid Architecture)
+│       ├── quantum-architect.md    # Code generation agent
+│       └── quantum-tutor.md        # Q&A agent
 │
 ├── plugins/              # Qiskit tools
 │   ├── __init__.py
@@ -538,36 +538,37 @@ qiskit_studio_backend/
     └── tsconfig.json          # TypeScript config
 ```
 
-### Adding New Agents
+### Adding New Agents (Markdown Approach)
 
-1. Create agent spec in `agents/`:
-```python
-# agents/quantum_optimizer.py
-from kernel.agent_factory import AgentSpec
+This project uses the **Hybrid Architecture** with Markdown agent definitions. To add a new agent:
 
-QUANTUM_OPTIMIZER = AgentSpec(
-    name="quantum-optimizer",
-    category="optimization",
-    agent_type="specialized",
-    description="Optimizes quantum circuits for depth and gate count",
-    system_prompt="You are an expert in quantum circuit optimization...",
-    tools=["execute_qiskit_code"],
-    capabilities=["circuit optimization", "transpilation"]
-)
+1. Create a Markdown file in `workspace/agents/`:
+```markdown
+# workspace/agents/quantum-optimizer.md
+---
+name: quantum-optimizer
+description: Optimizes quantum circuits for depth and gate count
+tools:
+  - execute_qiskit_code
+model: sonnet
+category: optimization
+agent_type: specialized
+version: "1.0.0"
+---
+
+# Quantum Circuit Optimizer
+
+You are an expert in quantum circuit optimization...
+
+## Your Responsibilities
+- Analyze quantum circuits for optimization opportunities
+- Reduce circuit depth and gate count
+- Apply transpilation best practices
 ```
 
-2. Register in `agents/__init__.py`:
-```python
-from .quantum_optimizer import QUANTUM_OPTIMIZER
-__all__ = ["QUANTUM_ARCHITECT", "QUANTUM_TUTOR", "QUANTUM_OPTIMIZER"]
-```
+2. The agent will be **automatically loaded** on server startup - no code changes needed!
 
-3. Register in `server.py`:
-```python
-from agents import QUANTUM_OPTIMIZER
-# In startup():
-os_instance.component_registry.register_agent(QUANTUM_OPTIMIZER)
-```
+The `AgentLoader` scans `workspace/agents/*.md` and registers all valid agents.
 
 ### Adding New Tools
 

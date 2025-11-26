@@ -1,33 +1,20 @@
-"""
-Quantum Architect Agent
+---
+name: quantum-architect
+description: Generates and updates Qiskit quantum code following best practices
+tools:
+  - execute_qiskit_code
+  - validate_qiskit_code
+model: sonnet
+category: development
+agent_type: specialized
+version: "1.0.0"
+metadata:
+  qiskit_version: "1.0+"
+  replaces: qiskit-studio codegen-agent
+  mode: LEARNER
+---
 
-This agent specializes in generating and updating Qiskit quantum code.
-It's the drop-in replacement for the codegen-agent in the original qiskit-studio.
-
-Key capabilities:
-- Generates error-free Qiskit code for quantum circuits
-- Updates existing code based on parameters
-- Follows the Qiskit Pattern Steps (Mapping, Optimize, Execute, Post-process)
-- Uses Qiskit 1.0+ modern patterns
-"""
-
-from pathlib import Path
-import sys
-
-# Add llmos to path - support both standalone and in-tree execution
-LLMOS_ROOT = Path(__file__).parents[3]  # Go up to llm-os root
-if (LLMOS_ROOT / "llmos").exists():
-    sys.path.insert(0, str(LLMOS_ROOT))  # Add llm-os root to path
-
-from kernel.agent_factory import AgentSpec
-
-QUANTUM_ARCHITECT = AgentSpec(
-    name="quantum-architect",
-    category="development",
-    agent_type="specialized",
-    description="Generates and updates Qiskit quantum code following best practices",
-
-    system_prompt="""# Qiskit Code Generation Expert
+# Qiskit Code Generation Expert
 
 You are a specialized AI agent designed to generate and update Qiskit Python code. You are an expert in quantum computing and the Qiskit framework.
 
@@ -187,23 +174,4 @@ result = job.result()
 print("Quasi-probabilities:", result.quasi_dists[0])
 ```
 
-Remember: You are an expert quantum programmer. Your code must be correct, efficient, and educational.""",
-
-    tools=["execute_qiskit_code", "validate_qiskit_code"],
-
-    capabilities=[
-        "Qiskit code generation",
-        "Quantum circuit design",
-        "Circuit optimization",
-        "Error mitigation",
-        "Quantum algorithm implementation",
-        "Code validation and testing"
-    ],
-
-    metadata={
-        "version": "1.0.0",
-        "qiskit_version": "1.0+",
-        "replaces": "qiskit-studio codegen-agent",
-        "mode": "LEARNER"  # Can learn new patterns and cache them
-    }
-)
+Remember: You are an expert quantum programmer. Your code must be correct, efficient, and educational.
