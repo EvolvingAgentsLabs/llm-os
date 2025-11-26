@@ -12,6 +12,11 @@ Key features:
 - Orchestrator mode for complex reasoning
 - Built-in security hooks
 - Unified memory management
+
+API Endpoints (matching original qiskit-studio):
+- POST /chat          - Chat agent (port 8000 in original)
+- POST /chat/stream   - Streaming chat (SSE)
+- POST /run           - Code execution (port 8002 in original)
 """
 
 import asyncio
@@ -23,7 +28,8 @@ from pathlib import Path
 import sys
 import logging
 import json
-from typing import Optional, Dict, Any, List
+import re
+from typing import Optional, Dict, Any, List, AsyncGenerator
 
 # Add llmos to path - support both standalone and in-tree execution
 LLMOS_ROOT = Path(__file__).parents[2]  # Go up to llm-os root
@@ -181,38 +187,93 @@ async def root():
     }
 
 
+def extract_user_message(data: Dict[str, Any]) -> str:
+    """
+    Extract user message from various request formats.
+
+    Supports:
+    - messages: [{role: "user", content: "..."}]
+    - input_value: "..."
+    - prompt: "..."
+    """
+    # Check for messages array (standard format)
+    messages = data.get("messages", [])
+    if messages:
+        return messages[-1].get("content", "")
+
+    # Check for input_value (Maestro format)
+    if data.get("input_value"):
+        return data["input_value"]
+
+    # Check for prompt (alternative format)
+    if data.get("prompt"):
+        return data["prompt"]
+
+    return ""
+
+
+def is_code_update_request(user_message: str) -> bool:
+    """
+    Detect if this is a code update/parameter change request (from codegen-agent).
+
+    These requests have a specific format:
+    ###[Node Label]
+    ```
+    code here
+    ```
+    NEW PARAMETERS:
+    parameter: value
+    """
+    return user_message.strip().startswith("###[") and "NEW PARAMETERS:" in user_message
+
+
+def extract_code_from_request(user_message: str) -> tuple[str, str, Dict[str, Any]]:
+    """
+    Extract node label, code, and parameters from a code update request.
+
+    Returns:
+        tuple: (node_label, current_code, parameters_dict)
+    """
+    # Extract node label
+    label_match = re.search(r"###\[([^\]]+)\]", user_message)
+    node_label = label_match.group(1) if label_match else "Unknown"
+
+    # Extract code block
+    code_match = re.search(r"```(?:python)?\s*(.*?)```", user_message, re.DOTALL)
+    current_code = code_match.group(1).strip() if code_match else ""
+
+    # Extract parameters
+    params = {}
+    params_section = user_message.split("NEW PARAMETERS:")
+    if len(params_section) > 1:
+        params_text = params_section[1].strip()
+        # Parse key: value pairs
+        for line in params_text.split("\n"):
+            line = line.strip()
+            if ":" in line and not line.startswith("#"):
+                key, value = line.split(":", 1)
+                params[key.strip()] = value.strip()
+
+    return node_label, current_code, params
+
+
 @app.post("/chat")
 async def chat_endpoint(request: Request):
     """
     Chat endpoint - handles both conversational and code generation requests.
 
     This is the drop-in replacement for:
-    - Original chat-agent (RAG-based Q&A)
-    - Original codegen-agent (code generation)
+    - Original chat-agent (RAG-based Q&A) - port 8000
+    - Original codegen-agent (code generation) - port 8001
 
-    The LLM OS dispatcher automatically routes to the appropriate agent
-    and mode (Learner/Follower/Orchestrator).
+    Request formats supported:
+    1. Standard: {"messages": [{"role": "user", "content": "..."}]}
+    2. Maestro: {"input_value": "...", "prompt": "..."}
 
-    Request format:
+    Response format (Maestro-compatible):
     {
-        "messages": [
-            {"role": "user", "content": "..."},
-            {"role": "assistant", "content": "..."},
-            ...
-        ],
-        "session_id": "optional-session-id"
-    }
-
-    Response format:
-    {
-        "role": "assistant",
-        "content": "...",
-        "metadata": {
-            "agent": "quantum-architect",
-            "mode": "FOLLOWER",
-            "cost": 0.0,
-            "cached": true
-        }
+        "response": "{\"final_prompt\": \"...\"}",
+        "output": "..."
     }
     """
     if not os_instance:
@@ -220,17 +281,13 @@ async def chat_endpoint(request: Request):
 
     try:
         data = await request.json()
-        messages = data.get("messages", [])
         session_id = data.get("session_id", "default")
 
-        if not messages:
-            raise HTTPException(status_code=400, detail="No messages provided")
-
-        # Get the latest user message
-        user_message = messages[-1].get("content", "")
+        # Extract user message from various formats
+        user_message = extract_user_message(data)
 
         if not user_message:
-            raise HTTPException(status_code=400, detail="Empty user message")
+            raise HTTPException(status_code=400, detail="No message provided")
 
         # Get or create session history
         if session_id not in session_memory:
@@ -238,32 +295,46 @@ async def chat_endpoint(request: Request):
 
         conversation_history = session_memory[session_id]
 
-        # Analyze intent
-        intent = analyze_intent(user_message, conversation_history)
+        # Check if this is a code update request (codegen-agent style)
+        if is_code_update_request(user_message):
+            logger.info("Detected code update request (codegen-agent style)")
+            node_label, current_code, params = extract_code_from_request(user_message)
+
+            # Build a prompt for code modification
+            enhanced_prompt = f"""You are an expert Qiskit programmer. Update the following code for the {node_label} node.
+
+Current code:
+```python
+{current_code}
+```
+
+Apply these parameter changes:
+{json.dumps(params, indent=2)}
+
+Return ONLY the updated Python code. Do not include markdown formatting or explanations."""
+
+            intent = {"agent": "quantum-architect", "mode": "AUTO", "is_coding_task": True}
+        else:
+            # Regular chat/Q&A request
+            intent = analyze_intent(user_message, conversation_history)
+
+            # Build enhanced prompt with conversation context
+            if conversation_history:
+                context = "\n".join([
+                    f"{msg['role']}: {msg['content']}"
+                    for msg in conversation_history[-5:]  # Last 5 messages
+                ])
+                enhanced_prompt = f"""Previous conversation:
+{context}
+
+Current request: {user_message}"""
+            else:
+                enhanced_prompt = user_message
 
         logger.info(f"Processing chat request: {user_message[:100]}...")
         logger.info(f"Routing to agent: {intent['agent']}, mode: {intent['mode']}")
 
-        # Build enhanced prompt with conversation context
-        if conversation_history:
-            context = "\n".join([
-                f"{msg['role']}: {msg['content']}"
-                for msg in conversation_history[-5:]  # Last 5 messages
-            ])
-            enhanced_prompt = f"""Previous conversation:
-{context}
-
-Current request: {user_message}"""
-        else:
-            enhanced_prompt = user_message
-
         # Execute through LLM OS
-        # The dispatcher will automatically:
-        # 1. Check if this is a repeated pattern (FOLLOWER mode - FREE)
-        # 2. Route to appropriate agent
-        # 3. Use memory for context
-        # 4. Apply security hooks
-
         result = await os_instance.execute(
             goal=enhanced_prompt,
             mode=intent["mode"],
@@ -287,21 +358,120 @@ Current request: {user_message}"""
         else:
             logger.info(f"💰 Request cost: ${cost:.4f}")
 
-        # Return response in format expected by frontend
+        # Return response in Maestro-compatible format for frontend
+        # The frontend expects either:
+        # - {response: "{final_prompt: ...}"} for Maestro
+        # - {output: "..."} for simple responses
+        response_json = {
+            "final_prompt": response_text,
+            "agent": intent["agent"],
+            "mode": mode_used,
+            "cost": cost,
+            "cached": cached
+        }
+
         return {
-            "role": "assistant",
-            "content": response_text,
-            "metadata": {
-                "agent": intent["agent"],
-                "mode": mode_used,
-                "cost": cost,
-                "cached": cached,
-                "session_id": session_id
-            }
+            "response": json.dumps(response_json),
+            "output": response_text
         }
 
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: Request):
+    """
+    Streaming chat endpoint - returns Server-Sent Events (SSE).
+
+    This is the drop-in replacement for the streaming endpoint used by the frontend.
+
+    Response format (SSE):
+    data: {"step_name": "llm_step", "step_result": "..."}
+    data: [DONE]
+    """
+    if not os_instance:
+        raise HTTPException(status_code=503, detail="LLM OS not initialized")
+
+    try:
+        data = await request.json()
+        session_id = data.get("session_id", "default")
+        user_message = extract_user_message(data)
+
+        if not user_message:
+            raise HTTPException(status_code=400, detail="No message provided")
+
+        # Get or create session history
+        if session_id not in session_memory:
+            session_memory[session_id] = []
+
+        conversation_history = session_memory[session_id]
+        intent = analyze_intent(user_message, conversation_history)
+
+        # Build enhanced prompt
+        if conversation_history:
+            context = "\n".join([
+                f"{msg['role']}: {msg['content']}"
+                for msg in conversation_history[-5:]
+            ])
+            enhanced_prompt = f"""Previous conversation:
+{context}
+
+Current request: {user_message}"""
+        else:
+            enhanced_prompt = user_message
+
+        logger.info(f"Processing streaming chat request: {user_message[:100]}...")
+
+        async def generate_stream() -> AsyncGenerator[str, None]:
+            """Generate SSE stream."""
+            try:
+                # Execute through LLM OS
+                result = await os_instance.execute(
+                    goal=enhanced_prompt,
+                    mode=intent["mode"],
+                    max_cost_usd=2.0
+                )
+
+                response_text = result.get("output", "")
+
+                # Update session memory
+                conversation_history.append({"role": "user", "content": user_message})
+                conversation_history.append({"role": "assistant", "content": response_text})
+                session_memory[session_id] = conversation_history
+
+                # Send the result as SSE in the format expected by frontend
+                sse_data = {
+                    "step_name": "llm_step",
+                    "step_result": response_text
+                }
+                yield f"data: {json.dumps(sse_data)}\n\n"
+
+                # Send done marker
+                yield "data: [DONE]\n\n"
+
+            except Exception as e:
+                logger.error(f"Error in stream generation: {str(e)}", exc_info=True)
+                error_data = {
+                    "step_name": "error",
+                    "step_result": str(e)
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error in streaming chat endpoint: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
