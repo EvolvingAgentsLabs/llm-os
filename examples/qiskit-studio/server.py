@@ -41,11 +41,14 @@ else:
 
 from boot import LLMOS
 from kernel.component_registry import ComponentRegistry
+from kernel.agent_loader import AgentLoader
 
-# Import our custom agents and tools
+# Import our custom tools
 sys.path.insert(0, str(Path(__file__).parent))
-from agents import QUANTUM_ARCHITECT, QUANTUM_TUTOR
 from plugins.qiskit_tools import execute_qiskit_code, validate_qiskit_code
+
+# Agents directory path (Markdown agents)
+AGENTS_DIR = Path(__file__).parent / "workspace" / "agents"
 
 # Configure logging
 logging.basicConfig(
@@ -151,17 +154,37 @@ async def startup():
     os_instance.component_registry.register_tool(execute_qiskit_code)
     os_instance.component_registry.register_tool(validate_qiskit_code)
 
-    # Register our custom agents
-    logger.info("Registering specialized quantum agents...")
-    os_instance.component_registry.register_agent(QUANTUM_ARCHITECT)
-    os_instance.component_registry.register_agent(QUANTUM_TUTOR)
+    # Load agents from Markdown files (Hybrid Architecture approach)
+    logger.info("Loading specialized quantum agents from Markdown...")
+    agent_loader = AgentLoader(agents_dir=str(AGENTS_DIR))
+
+    # Load all agent definitions from Markdown files
+    for agent_name in agent_loader.list_agents():
+        agent_def = agent_loader.load_agent(agent_name)
+        if agent_def:
+            logger.info(f"  - Loaded agent: {agent_def.name}")
+            # Convert AgentDefinition to AgentSpec for registry
+            from kernel.agent_factory import AgentSpec
+            spec = AgentSpec(
+                name=agent_def.name,
+                agent_type=agent_def.metadata.get("agent_type", "specialized"),
+                category=agent_def.metadata.get("category", "quantum_computing"),
+                description=agent_def.description,
+                tools=agent_def.tools,
+                system_prompt=agent_def.system_prompt,
+                capabilities=agent_def.metadata.get("capabilities", []),
+                version=agent_def.metadata.get("version", "1.0")
+            )
+            os_instance.component_registry.register_agent(spec)
 
     # Boot the OS
     await os_instance.boot()
 
     # Pre-load any quantum computing knowledge into L4 memory
     # This would normally load Qiskit documentation, but we'll skip for now
+    agents_list = agent_loader.list_agents()
     logger.info("Backend initialization complete!")
+    logger.info(f"Loaded {len(agents_list)} Markdown agents from {AGENTS_DIR}")
     logger.info("="*60)
     print()
 

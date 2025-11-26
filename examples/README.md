@@ -61,11 +61,12 @@ You are an expert researcher specializing in...
 
 These are the primary examples showcasing LLM OS capabilities:
 
-### 1. Qiskit Studio Backend (`qiskit_studio_backend/`)
+### 1. Qiskit Studio (`qiskit-studio/`)
 
-**A flagship example** showing LLM OS as a drop-in replacement for complex multi-agent microservice architectures.
+**A flagship example** showing LLM OS using the **Hybrid Architecture with Markdown Agents**.
 
 **What it demonstrates:**
+- 📝 **Markdown Agents**: Agents defined in `workspace/agents/*.md` files (no Python!)
 - 💰 **Cost Reduction**: Learner → Follower caching (100% savings on repeated tasks)
 - 🔒 **Enhanced Security**: Multi-layer code execution protection
 - 🧠 **Unified Memory**: Cross-project learning and semantic memory
@@ -74,11 +75,11 @@ These are the primary examples showcasing LLM OS capabilities:
 
 **Quick Start:**
 ```bash
-cd qiskit_studio_backend
+cd qiskit-studio
 ./run.sh
 ```
 
-**Full Documentation:** See [qiskit_studio_backend/README.md](qiskit_studio_backend/README.md)
+**Full Documentation:** See [qiskit-studio/README.md](qiskit-studio/README.md)
 
 ---
 
@@ -208,12 +209,12 @@ The `legacy/` directory contains examples from earlier versions (v3.1.0 and befo
 |------------------|-----|-----|
 | **⭐ Understand the Hybrid Architecture** | **Hybrid Architecture Demo** | **The flagship - self-modifying agents, the future** |
 | See self-modification in action | **Hybrid Architecture Demo** | Watch the system create its own agents |
-| See a production-ready backend | **Qiskit Studio Backend** | Drop-in microservice replacement with FastAPI |
+| See a production-ready backend | **Qiskit Studio** | Drop-in microservice replacement with FastAPI + Markdown agents |
 | Build educational tools for kids | **Q-Kids Studio** | Kid-safe, gamified, adaptive quantum learning |
 | Control robots with natural language | **RoboOS** | LLM as robot brain with multi-layer safety |
 | Run impressive demos with visuals | **Demo App** | Rich terminal UI, 7 scenarios, perfect for stakeholders |
-| Learn about quantum computing | **Qiskit Studio Backend** or **Q-Kids Studio** | Domain-specific quantum agents and tools |
-| Understand cost savings | **Qiskit Studio Backend** or **Demo App** | Learner→Follower demo with metrics |
+| Learn about quantum computing | **Qiskit Studio** or **Q-Kids Studio** | Domain-specific quantum agents and tools |
+| Understand cost savings | **Qiskit Studio** or **Demo App** | Learner→Follower demo with metrics |
 | See multi-agent orchestration | **Demo App (Scenario 1)** or **Qiskit Studio** | Multiple agents collaborating |
 | Test security hooks | **RoboOS** or **Demo App (Scenario 4)** | Safety validation in action |
 | Build adaptive AI tutors | **Q-Kids Studio** | Professor Q agent with context-aware hints |

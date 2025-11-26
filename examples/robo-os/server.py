@@ -16,6 +16,7 @@ import os
 import asyncio
 from typing import Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
 
 # Add parent directories to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
@@ -26,11 +27,13 @@ from pydantic import BaseModel
 import uvicorn
 
 from boot.llm_os import LLMOS
+from kernel.agent_loader import AgentLoader
 from plugins.robot_controller import ROBOT_CONTROLLER_TOOLS
-from agents.operator import OPERATOR_AGENT_CONFIG
-from agents.safety_officer import SAFETY_OFFICER_CONFIG
 from robot_state import get_robot_state, reset_robot_state
 from safety_hook import get_safety_hook
+
+# Agents directory path (Markdown agents)
+AGENTS_DIR = Path(__file__).parent / "workspace" / "agents"
 
 
 # ============================================================================
@@ -117,25 +120,36 @@ def initialize_llmos():
     # Register safety hook
     llmos_instance.register_hook('pre_tool_use', get_safety_hook())
 
-    # Create operator agent
-    operator_agent = llmos_instance.create_agent(
-        name=OPERATOR_AGENT_CONFIG['name'],
-        mode=OPERATOR_AGENT_CONFIG['mode'],
-        system_prompt=OPERATOR_AGENT_CONFIG['system_prompt']
-    )
+    # Load agents from Markdown files
+    agent_loader = AgentLoader(agents_dir=str(AGENTS_DIR))
 
-    # Create safety officer agent (only monitoring tools)
-    safety_tools = ['get_status', 'get_camera_feed', 'emergency_stop']
-    safety_officer_agent = llmos_instance.create_agent(
-        name=SAFETY_OFFICER_CONFIG['name'],
-        mode=SAFETY_OFFICER_CONFIG['mode'],
-        system_prompt=SAFETY_OFFICER_CONFIG['system_prompt'],
-        available_tools=safety_tools
-    )
+    # Load operator agent
+    operator_def = agent_loader.load_agent("operator")
+    if operator_def:
+        operator_agent = llmos_instance.create_agent(
+            name=operator_def.name,
+            mode=operator_def.metadata.get("mode", "learner"),
+            system_prompt=operator_def.system_prompt,
+            available_tools=operator_def.tools
+        )
+        print("✓ Operator agent loaded from Markdown")
+    else:
+        raise RuntimeError("Failed to load operator agent from workspace/agents/operator.md")
+
+    # Load safety officer agent (only monitoring tools)
+    safety_def = agent_loader.load_agent("safety-officer")
+    if safety_def:
+        safety_officer_agent = llmos_instance.create_agent(
+            name=safety_def.name,
+            mode=safety_def.metadata.get("mode", "learner"),
+            system_prompt=safety_def.system_prompt,
+            available_tools=safety_def.tools  # Tools restricted in markdown definition
+        )
+        print("✓ Safety officer agent loaded from Markdown")
+    else:
+        raise RuntimeError("Failed to load safety officer agent from workspace/agents/safety-officer.md")
 
     print("✓ LLM OS initialized")
-    print("✓ Operator agent ready")
-    print("✓ Safety officer agent ready")
     print("✓ Safety hook registered")
 
 

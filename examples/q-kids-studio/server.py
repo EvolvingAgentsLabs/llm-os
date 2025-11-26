@@ -20,8 +20,10 @@ sys.path.insert(0, str(Path(__file__).parents[2] / "llmos"))
 
 from kernel.llm_os import LLMOS
 from kernel.agent_factory import AgentSpec
-from agents.professor_q import PROFESSOR_Q
-from agents.game_master import GAME_MASTER
+from kernel.agent_loader import AgentLoader
+
+# Agents directory path (Markdown agents)
+AGENTS_DIR = Path(__file__).parent / "workspace" / "agents"
 
 
 # ============================================================================
@@ -315,12 +317,41 @@ def init_llmos():
     # Initialize LLM OS
     llmos = LLMOS()
 
-    # Register agents
-    print("📚 Loading Professor Q (Quantum Tutor)...")
-    professor_q = PROFESSOR_Q
+    # Load agents from Markdown files (Hybrid Architecture approach)
+    print("📚 Loading agents from Markdown files...")
+    agent_loader = AgentLoader(agents_dir=str(AGENTS_DIR))
 
-    print("🎮 Loading Game Master (Adaptive Difficulty)...")
-    game_master = GAME_MASTER
+    # Load Professor Q
+    professor_q_def = agent_loader.load_agent("professor-q")
+    if professor_q_def:
+        professor_q = AgentSpec(
+            name=professor_q_def.name,
+            agent_type=professor_q_def.metadata.get("agent_type", "specialized"),
+            category=professor_q_def.metadata.get("category", "education"),
+            description=professor_q_def.description,
+            tools=professor_q_def.tools,
+            system_prompt=professor_q_def.system_prompt,
+            version=professor_q_def.metadata.get("version", "1.0")
+        )
+        print(f"  - Loaded: {professor_q_def.name}")
+    else:
+        print("  - Warning: professor-q.md not found")
+
+    # Load Game Master
+    game_master_def = agent_loader.load_agent("game-master")
+    if game_master_def:
+        game_master = AgentSpec(
+            name=game_master_def.name,
+            agent_type=game_master_def.metadata.get("agent_type", "orchestration"),
+            category=game_master_def.metadata.get("category", "education"),
+            description=game_master_def.description,
+            tools=game_master_def.tools,
+            system_prompt=game_master_def.system_prompt,
+            version=game_master_def.metadata.get("version", "1.0")
+        )
+        print(f"  - Loaded: {game_master_def.name}")
+    else:
+        print("  - Warning: game-master.md not found")
 
     # Register kid-safe circuit tools
     print("🔧 Registering kid-safe quantum tools...")
