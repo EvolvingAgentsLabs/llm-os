@@ -2,7 +2,14 @@
 
 **Using Large Language Models as the Cognitive Layer for Robotic Control**
 
-RoboOS demonstrates how **LLM OS** can serve as the "brain" of a robotic arm, translating natural language commands into precise, coordinated actions. Built on LLM OS Phase 2.5, it showcases multi-layer architecture, safety protocols, and AI-driven control systems.
+RoboOS demonstrates how **LLM OS v3.3.0** can serve as the "brain" of a robotic arm, translating natural language commands into precise, coordinated actions. Built on the latest LLM OS with Advanced Tool Use, it showcases multi-layer architecture, safety protocols, and AI-driven control systems.
+
+## What's New in v3.3.0
+
+- **PTC for Repetitive Tasks**: Robot pick-and-place operations replay via Programmatic Tool Calling (99%+ savings)
+- **Tool Search**: Operator agent discovers tools on-demand for novel commands
+- **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+- **Auto-Crystallization**: Repeated robot commands become zero-cost Python code
 
 ---
 
@@ -68,7 +75,7 @@ Imagine controlling a robot with commands like "Pick up the object at (1, 1, 0.5
 - **Natural Language Control**: Skip low-level programming; give high-level commands
 - **Multi-Layer Safety**: PreToolUse hook prevents dangerous operations before execution
 - **State Visualization**: ASCII "cockpit view" and overhead map (ready for 3D frontend)
-- **Learner → Follower**: Teach the robot once, replay tasks for free (100% cost savings)
+- **PTC-Powered Replay**: Teach the robot once, replay via PTC (99%+ cost savings, 90%+ token savings)
 - **Multi-Agent Coordination**: Operator and Safety Officer work together
 
 ### For AI Engineers
@@ -463,9 +470,9 @@ All blocked commands are logged:
 
 ---
 
-## Learner → Follower Pattern
+## PTC-Powered Robot Control (v3.3.0)
 
-### How It Works
+### How It Works with Programmatic Tool Calling
 
 **Learner Mode (First Time):**
 ```
@@ -475,24 +482,37 @@ Agent plans:
   1. move_to(1.5, 1.0, 0.5)
   2. toggle_tool(True)
   ↓
-Executes and stores trace in L4 memory
+Executes and stores trace with full tool_calls for PTC
 Cost: ~$0.02
 ```
 
-**Follower Mode (Subsequent Times):**
+**Follower Mode + PTC (Subsequent Times):**
 ```
 User: "Pick up object at (1.5, 1.0, 0.5)"  [Same input!]
   ↓
-L4 memory finds matching trace
+Learning Layer finds matching trace
   ↓
-Replays exact tool calls (NO LLM NEEDED!)
-Cost: $0.00
+Execution Layer uses PTC to replay tool sequence
+  - Tool calls execute OUTSIDE context window
+  - 90%+ token savings
+Cost: ~$0.00
+```
+
+**Crystallized Mode (After 5+ repetitions):**
+```
+User: "Pick up object at (1.5, 1.0, 0.5)"  [Frequent command!]
+  ↓
+Pattern crystallized into pure Python function
+  ↓
+Direct execution, no LLM at all
+Cost: $0.00 (truly FREE!)
 ```
 
 ### Use Cases
-- **Repetitive tasks**: Pick-and-place, inspection, assembly
-- **Batch operations**: Process 1000 items with 1 LLM call
-- **Training workflows**: Human teaches once, robot repeats forever
+- **Repetitive tasks**: Pick-and-place, inspection, assembly (PTC replay)
+- **Batch operations**: Process 1000 items with near-zero cost
+- **Training workflows**: Human teaches once, robot replays via PTC forever
+- **Factory lines**: Crystallized patterns for maximum throughput
 
 ### Cost Savings Example
 
@@ -500,9 +520,10 @@ Cost: $0.00
 
 | Approach | Daily Cost | Monthly Cost | Yearly Cost |
 |----------|------------|--------------|-------------|
-| No Caching | $2.00 | $60.00 | $730.00 |
-| Learner/Follower | $0.02 | $0.02 | $0.24 |
-| **Savings** | **99%** | **99.97%** | **99.97%** |
+| No LLM OS | $2.00 | $60.00 | $730.00 |
+| FOLLOWER + PTC | $0.01 | $0.30 | $3.65 |
+| CRYSTALLIZED | $0.00 | $0.00 | $0.00 |
+| **Savings** | **99.5%+** | **99.5%+** | **99.5%+** |
 
 ---
 

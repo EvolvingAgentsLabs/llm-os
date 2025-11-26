@@ -82,11 +82,62 @@ class DispatcherConfig:
 
 
 @dataclass
+class ExecutionLayerConfig:
+    """
+    Configuration for Anthropic Advanced Tool Use (Execution Layer)
+
+    The Execution Layer handles EFFICIENT execution of decisions made
+    by the Learning Layer (TraceManager, ModeStrategies).
+
+    Components:
+    - PTC (Programmatic Tool Calling): Execute tool sequences outside context
+    - Tool Search: On-demand tool discovery for novel scenarios
+    - Tool Examples: Auto-generated examples from successful traces
+    """
+    # Beta feature flag
+    enable_advanced_tool_use: bool = True
+    beta_header: str = "advanced-tool-use-2025-11-20"
+
+    # PTC (Programmatic Tool Calling) settings
+    enable_ptc: bool = True
+    ptc_container_timeout_secs: float = 120.0
+    ptc_max_containers: int = 5
+
+    # Tool Search settings
+    enable_tool_search: bool = True
+    tool_search_use_embeddings: bool = False  # Requires sentence-transformers
+    tool_search_embedding_model: str = "all-MiniLM-L6-v2"
+    tool_search_top_k: int = 5
+    defer_tools_by_default: bool = True  # New tools are deferred unless specified
+
+    # Tool Examples settings
+    enable_tool_examples: bool = True
+    tool_examples_min_success_rate: float = 0.9
+    tool_examples_max_per_tool: int = 3
+    tool_examples_cache_ttl_secs: float = 300.0
+
+    def __post_init__(self):
+        """Validate configuration"""
+        if self.ptc_container_timeout_secs <= 0:
+            raise ValueError("ptc_container_timeout_secs must be positive")
+        if self.ptc_max_containers <= 0:
+            raise ValueError("ptc_max_containers must be positive")
+        if self.tool_search_top_k <= 0:
+            raise ValueError("tool_search_top_k must be positive")
+        if not 0.0 <= self.tool_examples_min_success_rate <= 1.0:
+            raise ValueError("tool_examples_min_success_rate must be between 0 and 1")
+
+
+@dataclass
 class LLMOSConfig:
     """
     Complete LLMOS configuration
 
     Provides type-safe configuration with validation and presets.
+
+    Architecture:
+        - Learning Layer: TraceManager, ModeStrategies (decides WHAT to do)
+        - Execution Layer: PTC, Tool Search, Tool Examples (does it EFFICIENTLY)
 
     Example:
         # Use development preset
@@ -105,6 +156,7 @@ class LLMOSConfig:
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     sdk: SDKConfig = field(default_factory=SDKConfig)
     dispatcher: DispatcherConfig = field(default_factory=DispatcherConfig)
+    execution: ExecutionLayerConfig = field(default_factory=ExecutionLayerConfig)
     project_name: Optional[str] = None
 
     def __post_init__(self):
@@ -144,6 +196,7 @@ class LLMOSConfig:
         - Low budget ($1.00) to prevent expensive mistakes
         - LLM matching disabled for faster iteration
         - Streaming enabled for better UX during development
+        - Execution layer enabled but without embeddings (fast)
         """
         return cls(
             workspace=Path("./workspace"),
@@ -161,6 +214,13 @@ class LLMOSConfig:
             ),
             dispatcher=DispatcherConfig(
                 auto_crystallization=False  # Manual control in dev
+            ),
+            execution=ExecutionLayerConfig(
+                enable_advanced_tool_use=True,
+                enable_ptc=True,
+                enable_tool_search=True,
+                tool_search_use_embeddings=False,  # Fast, no dependencies
+                enable_tool_examples=True
             )
         )
 
@@ -174,6 +234,7 @@ class LLMOSConfig:
         - All features enabled (LLM matching, hooks, etc.)
         - Strict confidence thresholds
         - Auto-crystallization enabled
+        - Full execution layer with embeddings for best tool search
         """
         return cls(
             workspace=Path("./workspace"),
@@ -194,6 +255,14 @@ class LLMOSConfig:
             dispatcher=DispatcherConfig(
                 auto_crystallization=True,  # Learn and optimize automatically
                 complexity_threshold=2
+            ),
+            execution=ExecutionLayerConfig(
+                enable_advanced_tool_use=True,
+                enable_ptc=True,
+                enable_tool_search=True,
+                tool_search_use_embeddings=True,  # Best quality search
+                enable_tool_examples=True,
+                defer_tools_by_default=True  # Save context by default
             )
         )
 
@@ -206,6 +275,7 @@ class LLMOSConfig:
         - Minimal budget ($0.10) for tests
         - All LLM features disabled for fast, deterministic tests
         - Short timeouts
+        - Execution layer disabled for deterministic behavior
         """
         return cls(
             workspace=Path("./test_workspace"),
@@ -226,6 +296,12 @@ class LLMOSConfig:
             ),
             dispatcher=DispatcherConfig(
                 auto_crystallization=False
+            ),
+            execution=ExecutionLayerConfig(
+                enable_advanced_tool_use=False,  # Deterministic tests
+                enable_ptc=False,
+                enable_tool_search=False,
+                enable_tool_examples=False
             )
         )
 
@@ -238,6 +314,7 @@ class LLMOSConfig:
         memory_data = data.get('memory', {})
         sdk_data = data.get('sdk', {})
         dispatcher_data = data.get('dispatcher', {})
+        execution_data = data.get('execution', {})
 
         return cls(
             workspace=workspace,
@@ -245,6 +322,7 @@ class LLMOSConfig:
             memory=MemoryConfig(**memory_data),
             sdk=SDKConfig(**sdk_data),
             dispatcher=DispatcherConfig(**dispatcher_data),
+            execution=ExecutionLayerConfig(**execution_data),
             project_name=data.get('project_name')
         )
 
@@ -279,6 +357,22 @@ class LLMOSConfig:
                 'auto_crystallization': self.dispatcher.auto_crystallization,
                 'crystallization_min_usage': self.dispatcher.crystallization_min_usage,
                 'crystallization_min_success': self.dispatcher.crystallization_min_success
+            },
+            'execution': {
+                'enable_advanced_tool_use': self.execution.enable_advanced_tool_use,
+                'beta_header': self.execution.beta_header,
+                'enable_ptc': self.execution.enable_ptc,
+                'ptc_container_timeout_secs': self.execution.ptc_container_timeout_secs,
+                'ptc_max_containers': self.execution.ptc_max_containers,
+                'enable_tool_search': self.execution.enable_tool_search,
+                'tool_search_use_embeddings': self.execution.tool_search_use_embeddings,
+                'tool_search_embedding_model': self.execution.tool_search_embedding_model,
+                'tool_search_top_k': self.execution.tool_search_top_k,
+                'defer_tools_by_default': self.execution.defer_tools_by_default,
+                'enable_tool_examples': self.execution.enable_tool_examples,
+                'tool_examples_min_success_rate': self.execution.tool_examples_min_success_rate,
+                'tool_examples_max_per_tool': self.execution.tool_examples_max_per_tool,
+                'tool_examples_cache_ttl_secs': self.execution.tool_examples_cache_ttl_secs
             },
             'project_name': self.project_name
         }

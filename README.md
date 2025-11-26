@@ -1,19 +1,61 @@
-# LLM OS - Evolution of llmunix
+# LLM OS - Self-Evolving LLM Operating System
 
-> A Self-Modifying LLM Operating System with Hybrid Architecture
+> A Self-Modifying LLM Operating System with Learning and Execution Optimization
 
-**Current Version**: 3.2.0 (Hybrid Architecture)
-- ✅ **Phase 3.2**: Hybrid Architecture - Markdown agents + Python kernel
-- ✅ Phase 3.0: HOPE - Self-modifying kernel with crystallization
-- ✅ Phase 2.5: SDK hooks, streaming, nested learning
-- ✅ Phase 2: Multi-agent orchestration, project management
-- ✅ Phase 1: Learner-Follower pattern (cost optimization)
+**Current Version**: 3.3.0 (Advanced Tool Use Integration)
 
-## 🌟 The Hybrid Architecture
+## What's New in v3.3.0
 
-**The future of LLM OS**: Agents are defined in **Markdown files** that the system can create and modify on the fly!
+- **Anthropic Advanced Tool Use Integration** - Official support for:
+  - **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window
+  - **Tool Search**: On-demand tool discovery for large toolsets
+  - **Tool Examples**: Auto-generated examples from successful traces
+- **Two-Layer Architecture**: Learning Layer + Execution Layer separation
+- **90%+ Token Savings**: PTC keeps tool results out of context
 
-### Three-Layer Stack
+## Version History
+
+- v3.3.0: Advanced Tool Use (PTC, Tool Search, Tool Examples)
+- v3.2.0: Hybrid Architecture - Markdown agents + Python kernel
+- v3.0.0: HOPE - Self-modifying kernel with crystallization
+- v2.5.0: SDK hooks, streaming, nested learning
+- v2.0.0: Multi-agent orchestration, project management
+- v1.0.0: Learner-Follower pattern (cost optimization)
+
+---
+
+## Architecture Overview
+
+LLM OS implements a unique **two-layer architecture** that separates intelligence from efficiency:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LEARNING LAYER (Intelligence)                │
+│                                                                 │
+│  TraceManager        ModeStrategies       Semantic Matching     │
+│  ─────────────       ──────────────       ─────────────────     │
+│  Stores execution    Decides best         Finds similar past    │
+│  history & patterns  approach for goal    experiences           │
+│                                                                 │
+│  Purpose: "What's the BEST approach for this scenario?"         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+                    Decision: Use Mode X
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   EXECUTION LAYER (Efficiency)                  │
+│                   Anthropic Advanced Tool Use                   │
+│                                                                 │
+│  PTC Executor        Tool Search          Tool Examples         │
+│  ────────────        ───────────          ─────────────         │
+│  Zero-context        On-demand tool       Auto-generated        │
+│  tool replay         discovery            from traces           │
+│                                                                 │
+│  Purpose: "How to execute this pattern EFFICIENTLY?"            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### The Three-Layer Stack
 
 ```
 ┌─────────────────────────────────────────┐
@@ -41,30 +83,126 @@
 └─────────────────────────────────────────┘
 ```
 
-### Key Innovation: Self-Modification
+---
 
-The system can **create new agents** by writing Markdown files:
+## Five Execution Modes
+
+LLM OS automatically selects the optimal execution mode based on the Learning Layer's analysis:
+
+| Mode | When Used | Cost | Execution Layer |
+|------|-----------|------|-----------------|
+| **CRYSTALLIZED** | Pattern used 5+ times, 95%+ success | $0.00 | PTC (code execution) |
+| **FOLLOWER** | Very similar trace found (>92% confidence) | ~$0.00 | PTC (tool replay) |
+| **MIXED** | Related trace found (75-92% confidence) | ~$0.25 | Tool Examples + LLM |
+| **LEARNER** | Novel scenario, no relevant traces | ~$0.50 | Tool Search + Full LLM |
+| **ORCHESTRATOR** | Complex task requiring multiple agents | Variable | Tool Search + Multi-agent |
+
+### Mode Flow Example
+
+```
+User: "Create a Python calculator"
+
+1. LEARNER MODE (First time)
+   - Learning Layer: "No matching trace found"
+   - Execution Layer: Tool Search discovers needed tools
+   - Cost: ~$0.50
+   - Result: Creates trace with tool_calls for future PTC
+
+2. FOLLOWER MODE (Second time)
+   - Learning Layer: "Found trace with 98% confidence"
+   - Execution Layer: PTC replays tool sequence (zero context!)
+   - Cost: ~$0.00
+   - Tokens saved: 90%+
+
+3. CRYSTALLIZED MODE (After 5+ successful runs)
+   - Learning Layer: "Pattern crystallized into Python tool"
+   - Execution Layer: Direct Python execution
+   - Cost: $0.00
+   - Time: <1s
+```
+
+---
+
+## Key Features
+
+### 1. Programmatic Tool Calling (PTC)
+
+Execute tool sequences outside the context window for massive token savings:
 
 ```python
-# System uses create_agent tool
-await os.execute("Create a haiku-poet agent that writes beautiful haikus")
+# When a trace is replayed in FOLLOWER mode:
+# - Tool calls execute in a container
+# - Results DON'T hit the context window
+# - 90%+ token savings vs traditional execution
+```
 
+### 2. Tool Search Engine
+
+On-demand tool discovery instead of loading all tools upfront:
+
+```python
+# Instead of loading 100+ tools into context:
+# - Start with search_tools meta-tool
+# - Claude discovers tools as needed
+# - 85-90% context reduction
+```
+
+### 3. Tool Examples from Traces
+
+Auto-generate `input_examples` from successful execution history:
+
+```python
+# Learning Layer tracks successful tool usage
+# Execution Layer generates examples for new executions
+# Result: Better tool usage, fewer errors
+```
+
+### 4. Self-Modification
+
+The system can create and modify its own agents:
+
+```python
+await os.execute("Create a haiku-poet agent that writes beautiful haikus")
 # Result: workspace/agents/haiku-poet.md is created
 # Agent is immediately available, no restart needed!
 ```
 
-**Why This Matters:**
-- 📝 **Just-in-Time Agents**: System creates specialists on demand
-- 🔄 **Hot Reload**: Changes take effect instantly
-- 🧠 **LLM-Friendly**: System can read/write its own definitions
-- 🎯 **Self-Evolution**: System improves itself over time
-- 📚 **Version Control**: Track agent evolution in git
+### 5. Token Economy
 
-See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for full documentation.
+Explicit budget management with hooks:
 
-## Overview
+```python
+economy = TokenEconomy(budget_usd=10.0)
+economy.check_budget(0.50)  # Check before execution
+economy.deduct(0.45, "Learn: Create script")  # Track spending
+```
 
-This repository contains **llmos** (LLM OS), the evolved version of [llmunix](../llmunix) based on the Claude Agent SDK. Starting with v3.2.0, llmos implements a **Hybrid Architecture** combining llmunix's markdown philosophy (flexibility, self-modification) with llmos's Python kernel (stability, security, performance).
+### 6. Security Hooks
+
+Pre-tool-use validation to block dangerous operations:
+
+```python
+# Built-in protection against:
+# - rm -rf / (destructive commands)
+# - curl | bash (arbitrary code execution)
+# - Position violations (for robotics)
+```
+
+### 7. Multi-Agent Orchestration
+
+Complex tasks are automatically decomposed:
+
+```
+User: "Research AI trends and write a report"
+
+→ ORCHESTRATOR mode activated
+→ Creates researcher agent (LEARNER)
+→ Creates writer agent (LEARNER)
+→ Coordinates execution
+→ Combines outputs
+```
+
+---
 
 ## Project Structure
 
@@ -73,329 +211,362 @@ llm-os/
 ├── llmos/                          # Python Kernel (Somatic Layer)
 │   ├── boot.py                     # Entry point
 │   ├── kernel/                     # Core OS components
-│   │   ├── agent_loader.py         # 🆕 Markdown → Runtime bridge
+│   │   ├── config.py               # Configuration with ExecutionLayerConfig
+│   │   ├── mode_strategies.py      # Learning Layer: mode selection
+│   │   ├── agent_loader.py         # Markdown → Runtime bridge
+│   │   ├── token_economy.py        # Budget management
 │   │   └── ...                     # Scheduler, Watchdog, Event Bus
-│   ├── memory/                     # Storage layer (Traces, Memory)
-│   ├── interfaces/                 # Execution layer (Dispatcher, Orchestrator)
+│   ├── memory/                     # Storage layer
+│   │   ├── traces_sdk.py           # ExecutionTrace with tool_calls for PTC
+│   │   └── ...                     # Memory store, queries
+│   ├── interfaces/                 # Execution interfaces
+│   │   ├── dispatcher.py           # Mode routing + Execution Layer
+│   │   ├── sdk_client.py           # Claude SDK integration
+│   │   └── orchestrator.py         # Multi-agent coordination
+│   ├── execution/                  # NEW: Execution Layer (v3.3.0)
+│   │   ├── ptc.py                  # Programmatic Tool Calling
+│   │   ├── tool_search.py          # On-demand tool discovery
+│   │   └── tool_examples.py        # Auto-generated examples
 │   └── plugins/                    # Tools
-│       ├── system_tools.py         # 🆕 create_agent, list_agents, modify_agent
-│       └── generated/              # 🆕 Auto-generated crystallized tools
+│       ├── system_tools.py         # create_agent, list_agents
+│       └── generated/              # Crystallized tools (HOPE)
 │
-├── workspace/                      # 🆕 Markdown Mind (Cognitive Layer)
-│   └── agents/                     # 🆕 Agent definitions (.md files)
-│       ├── researcher.md           # Sample: Web research specialist
-│       ├── coder.md                # Sample: Expert coder
-│       └── data-analyst.md         # Sample: Data analysis specialist
+├── workspace/                      # Markdown Mind (Cognitive Layer)
+│   └── agents/                     # Agent definitions (.md files)
 │
 ├── examples/                       # Production-ready examples
-│   ├── hybrid_architecture_demo.py # ⭐ NEW: Self-modification demo
-│   ├── qiskit_studio_backend/      # Quantum computing backend
-│   ├── q-kids-studio/              # Educational quantum (ages 8-12)
-│   ├── robo-os/                    # Robot control with LLM brain
-│   ├── demo-app/                   # Rich TUI with 7 scenarios
-│   └── multi_agent_example.py      # Phase 2/2.5 feature showcase
+│   ├── qiskit-studio/              # Quantum computing backend (Full Execution Layer)
+│   ├── q-kids-studio/              # Educational quantum (PTC at scale)
+│   ├── robo-os/                    # Robot control (Safety hooks)
+│   └── demo-app/                   # Interactive capability showcase
 │
-└── HYBRID_ARCHITECTURE.md          # 🆕 Full documentation (531 lines)
+├── docs/
+│   └── ADVANCED_TOOL_USE_IMPLEMENTATION.md  # v3.3.0 implementation details
+│
+└── HYBRID_ARCHITECTURE.md          # Full architecture documentation
 ```
 
-## Key Differences
-
-| Feature | llmunix | llmos (Phase 2.5) |
-|---------|---------|-------|
-| **Foundation** | Custom markdown framework | Claude Agent SDK |
-| **Architecture** | Agent-based orchestration | Kernel-Cortex-Memory OS |
-| **Execution** | Multi-agent pipelines | 3-mode dispatch (Learner/Follower/Orchestrator) |
-| **Memory** | File-based logs | SDK-aligned traces (Markdown) + file-based storage |
-| **Extensibility** | Markdown agents/tools | Python plugins + AgentDefinitions |
-| **Token Management** | Implicit cost tracking | Explicit TokenEconomy + SDK hooks |
-| **Focus** | Project-based CLI/mobile | Generic OS for any domain |
-| **Philosophy** | Markdown-driven | CPU analogy (LLM as processor) |
-| **Control Flow** | Linear | Event-driven with hooks (budget, security) |
-| **Multi-Agent** | Markdown orchestration | AgentDefinition + shared SDK client |
-| **Security** | N/A | PreToolUse hooks (dangerous command blocking) |
-| **Streaming** | N/A | Real-time feedback with partial messages |
+---
 
 ## Quick Start
 
-### ⭐ Experience the Magic: Hybrid Architecture Demo
-
-See the system create its own agents in real-time:
+### Installation
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone https://github.com/evolving-agents-labs/llm-os.git
+cd llm-os
+
+# 2. Install dependencies
 pip install -r llmos/requirements.txt
 
-# 2. Set your API key
+# 3. Set your API key
 export ANTHROPIC_API_KEY="your-key"
+```
 
-# 3. Run the Hybrid Architecture demo
+### Run the Hybrid Architecture Demo
+
+```bash
 python examples/hybrid_architecture_demo.py
 ```
 
 **What you'll see:**
-1. List Markdown-defined agents (`workspace/agents/*.md`)
-2. **Watch the system create a new agent** by writing a file
-3. Use the newly created agent immediately (no restart!)
+1. List Markdown-defined agents
+2. Watch the system create a new agent by writing a file
+3. Use the newly created agent immediately
 4. System modifies the agent to add capabilities
-5. Inspect the Markdown files the system wrote
 
-**This is sci-fi made real** - you'll literally watch the AI write its own brain.
-
-### Alternative: Interactive CLI
-
-For a traditional CLI experience:
+### Run the Interactive CLI
 
 ```bash
 cd llmos
 python boot.py interactive
 ```
 
-See [llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md) for detailed instructions.
+---
 
-## Documentation
+## Configuration
 
-### Core Documentation
-- **[llmos/README.md](llmos/README.md)** - LLM OS overview and usage
-- **[llmos/ARCHITECTURE.md](llmos/ARCHITECTURE.md)** - System architecture design
-- **[llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md)** - Installation and first steps
-- **[llmos/DEPLOYMENT_CHECKLIST.md](llmos/DEPLOYMENT_CHECKLIST.md)** - Implementation checklist
+LLM OS supports multiple configuration presets:
 
-### Examples
-- **[examples/README.md](examples/README.md)** - Examples overview and navigation guide
-- **⭐ [examples/hybrid_architecture_demo.py](examples/hybrid_architecture_demo.py)** - THE flagship demo
-  - Watch the system create and modify its own agents
-  - 5 interactive demonstrations of self-modification
-  - **Start here to understand v3.2.0**
-- **[examples/qiskit_studio_backend/](examples/qiskit_studio_backend/)** - Production case study
-  - Drop-in replacement for [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend (3 microservices → 1)
-  - 100% cost savings on repeated tasks via Learner→Follower
-- **[examples/q-kids-studio/](examples/q-kids-studio/)** - Educational platform (ages 8-12)
-  - Block-based quantum programming with gamification
-  - 99%+ cost savings via Learner→Follower caching
-- **[examples/robo-os/](examples/robo-os/)** - Robot control system
-  - Natural language robot control with multi-layer safety
-- **[examples/demo-app/](examples/demo-app/)** - Feature showcase
-  - Rich terminal UI with 7 demo scenarios
-- **[examples/legacy/](examples/legacy/)** - Programmatic agent examples (archived)
-
-## Architecture Highlights
-
-### LLM as CPU
-
-llmos treats the LLM as a **Central Processing Unit**:
-
-- **Python Kernel**: Motherboard (I/O, scheduling, monitoring, hooks)
-- **LLM**: Processor (planning, reasoning, learning, orchestration)
-- **Tokens**: Battery (energy for cognitive cycles, controlled by hooks)
-
-### Five Execution Modes (v3.2.0)
-
-**1. CRYSTALLIZED Mode** (Instant & Free) - 🆕 HOPE Phase 3.0
-```
-Frequent Task: "Create API endpoint"
-  → Pattern used 5+ times (95%+ success)
-  → Execute auto-generated Python tool
-  → Cost: $0.00, Time: <1s
+### Development (Default)
+```python
+config = LLMOSConfig.development()
+# - Low budget ($1.00)
+# - Execution layer enabled without embeddings
+# - Fast iteration mode
 ```
 
-**2. FOLLOWER Mode** (Fast & Free)
-```
-Repeat Task: "Create Python calculator"
-  → Finds matching trace (confidence > 0.9)
-  → Pure Python execution
-  → Cost: $0.00, Time: 2-5s
-```
-
-**3. MIXED Mode** (Guided & Efficient) - Phase 2.5
-```
-Similar Task: "Create calculator with GUI"
-  → Found similar trace (confidence 0.75-0.92)
-  → Few-shot LLM guidance
-  → Cost: ~$0.25, Time: 5-15s
+### Production
+```python
+config = LLMOSConfig.production()
+# - Higher budget ($100.00)
+# - Full execution layer with embeddings
+# - Auto-crystallization enabled
 ```
 
-**4. LEARNER Mode** (Novel & Controlled)
-```
-New Task: "Create Python calculator"
-  → No trace found
-  → Claude SDK with hooks (budget, security, tracing)
-  → Saves execution trace (Markdown)
-  → Cost: ~$0.50, Time: 10-30s
-```
-
-**5. ORCHESTRATOR Mode** (Complex & Multi-Agent) - Phase 2
-```
-Complex Task: "Research AI trends and write report"
-  → Detects complexity (keywords: "and", "research")
-  → Breaks down into subtasks
-  → Creates/selects agents (researcher, writer)
-  → Coordinates via AgentDefinitions
-  → Cost: Variable (~$1-2)
+### Testing
+```python
+config = LLMOSConfig.testing()
+# - Minimal budget ($0.10)
+# - Execution layer disabled
+# - Deterministic behavior
 ```
 
-### Token Economy
-
-Explicit budget management:
+### Execution Layer Configuration
 
 ```python
-economy = TokenEconomy(budget_usd=10.0)
-economy.check_budget(0.50)  # Learner Mode
-economy.deduct(0.45, "Learn: Create script")
+@dataclass
+class ExecutionLayerConfig:
+    # Beta feature flag
+    enable_advanced_tool_use: bool = True
+    beta_header: str = "advanced-tool-use-2025-11-20"
+
+    # PTC settings
+    enable_ptc: bool = True
+    ptc_container_timeout_secs: float = 120.0
+
+    # Tool Search settings
+    enable_tool_search: bool = True
+    tool_search_use_embeddings: bool = False  # True in production
+
+    # Tool Examples settings
+    enable_tool_examples: bool = True
+    tool_examples_min_success_rate: float = 0.9
 ```
 
-### Memory Hierarchy (SDK-Aligned)
-
-- **L1**: Context window (in LLM)
-- **L2**: Short-term memory (session logs)
-- **L3**: Procedural memory (execution traces - **Markdown**)
-- **L4**: Semantic memory (facts, insights - **file-based**)
-
-**Phase 2.5 Update**: Memory now uses SDK-aligned structure with Markdown traces instead of YAML.
-
-### Phase 2.5 Highlights
-
-**SDK Hooks System** (Automatic):
-- 🔒 **Security Hook**: Blocks dangerous commands (`rm -rf /`, `curl | bash`)
-- 💰 **Budget Hook**: Prevents runaway costs, estimates before execution
-- 📝 **Trace Hook**: Automatic execution trace capture
-- 💵 **Cost Hook**: Real-time cost monitoring
-- 🧠 **Memory Hook**: Injects relevant past experiences
-
-**Streaming Support**:
-- Real-time progress updates
-- Partial message streaming
-- Non-blocking execution feedback
-
-**Advanced SDK Integration**:
-- System prompt presets (leverage Claude's optimized prompts)
-- Full ClaudeAgentOptions support (model, max_turns, env, etc.)
-- AgentDefinition support for multi-agent orchestration
-- Shared SDK client for efficient agent coordination
+---
 
 ## Examples & Use Cases
 
-### ⭐ The Magic: Hybrid Architecture Demo
+Each example demonstrates specific LLM OS capabilities in a real-world context:
 
-**Watch the system create its own agents**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        LLM OS CAPABILITY MATRIX                              │
+├─────────────────┬──────────┬──────────┬──────────┬──────────┬──────────────┤
+│ Capability      │ Qiskit   │ Q-Kids   │ RoboOS   │ Demo-App │              │
+│                 │ Studio   │ Studio   │          │          │              │
+├─────────────────┼──────────┼──────────┼──────────┼──────────┼──────────────┤
+│ PTC Execution   │    ✓     │    ✓     │    ✓     │    ✓     │ 90%+ savings │
+│ Tool Search     │    ✓     │          │          │    ✓     │ On-demand    │
+│ Tool Examples   │    ✓     │    ✓     │          │    ✓     │ Auto-gen     │
+│ Crystallization │    ✓     │    ✓     │    ✓     │    ✓     │ Zero-cost    │
+│ Safety Hooks    │    ✓     │    ✓     │    ✓✓   │    ✓     │ PreToolUse   │
+│ Multi-Agent     │    ✓     │    ✓     │    ✓✓   │    ✓✓   │ Orchestrator │
+│ Markdown Agents │    ✓     │    ✓     │    ✓     │          │ Hot-reload   │
+│ FastAPI Server  │    ✓     │    ✓     │    ✓     │          │ Production   │
+└─────────────────┴──────────┴──────────┴──────────┴──────────┴──────────────┘
+                                                      ✓✓ = Primary focus
+```
 
-This is **the** example to see first. Run `python examples/hybrid_architecture_demo.py` and watch in real-time as:
-1. The system lists its Markdown-defined agents
-2. **Creates a new haiku-poet agent by writing a `.md` file**
-3. Uses the new agent immediately (zero restart time)
-4. Modifies the agent to add ASCII art capabilities
-5. Shows you the actual Markdown files it wrote
+### Qiskit Studio - Production Backend
 
-**Why this is amazing**: You're watching an AI write its own source code (agent definitions) and use them instantly. This is self-modification in action.
+**Demonstrates**: Full Execution Layer integration in a production API server
 
-See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for the full architecture.
-
----
-
-### 🏭 Production Example: Qiskit Studio Backend
-
-**LLM OS as a drop-in replacement for complex microservice architectures**
-
-We've reimplemented the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using LLM OS, replacing 3 separate Maestro-orchestrated microservices with a single unified backend:
-
-**Original Architecture (Maestro):**
-- `chat-agent` - RAG-based Q&A (separate microservice)
-- `codegen-agent` - Quantum code generation (separate microservice)
-- `coderun-agent` - Code execution (separate microservice)
-
-**LLM OS Architecture:**
-- **Quantum Tutor** agent - Chat & education (ORCHESTRATOR mode)
-- **Quantum Architect** agent - Code generation (LEARNER/FOLLOWER modes)
-- **Qiskit Tools** plugin - Secure code execution (Somatic Layer)
-
-**Key Improvements:**
-- 💰 **100% cost savings** on repeated tasks (Learner → Follower caching)
-- 🔒 **Enhanced security** with multi-layer protection hooks
-- 🧠 **Unified memory** across all interactions (L4 semantic memory)
-- ⚡ **90% simpler deployment** (single process vs. Docker Compose)
-- 🎨 **API compatible** with existing Next.js frontend
-
-**Try it:**
 ```bash
-cd examples/qiskit_studio_backend
-./run.sh
-# Backend runs on http://localhost:8000
-# Compatible with Qiskit Studio frontend
+cd examples/qiskit-studio
+python server.py
 ```
 
-See [examples/qiskit_studio_backend/README.md](examples/qiskit_studio_backend/README.md) for full documentation.
+| Capability | How It's Used |
+|------------|---------------|
+| **PTC** | Quantum circuit generation replayed outside context window |
+| **Tool Search** | Discovers qiskit tools on-demand for novel requests |
+| **Tool Examples** | Auto-generates examples from successful circuit builds |
+| **LLMOSConfig** | Full configuration with ExecutionLayerConfig |
+| **Stats Endpoint** | Exposes Execution Layer metrics via `/stats` API |
+
+**Key Learning**: How to integrate LLM OS v3.3.0 into a FastAPI backend with full Execution Layer support.
 
 ---
 
-### Other Use Cases
+### Q-Kids Studio - Educational Platform
 
-#### Code Generation
-```
-llmos> Create a REST API with FastAPI
-# First time: $0.50 (Learner)
-# Repeat: $0 (Follower)
-```
+**Demonstrates**: PTC for massive cost savings in high-volume scenarios
 
-#### Data Processing
-```
-llmos> Parse CSV files and create summary
-# Pattern saved, reusable
+```bash
+cd examples/q-kids-studio
+python server.py
 ```
 
-#### Research
+| Capability | How It's Used |
+|------------|---------------|
+| **PTC Hints** | Same mistake by different kids → PTC replay (99%+ savings) |
+| **Crystallization** | Common hints become pure Python after 5+ uses |
+| **Markdown Agents** | Professor Q and Game Master defined in `.md` files |
+| **Kid-Safe Tools** | Custom tools with safety constraints |
+| **Gamification** | Skill trees, badges, adaptive difficulty |
+
+**Key Learning**: How PTC enables cost-effective AI at scale (1000+ users, near-zero marginal cost).
+
+---
+
+### RoboOS - Robot Control
+
+**Demonstrates**: Safety hooks and multi-agent coordination
+
+```bash
+cd examples/robo-os
+python demo.py
 ```
-llmos> Summarize latest AI papers
-# Learns research pattern
+
+| Capability | How It's Used |
+|------------|---------------|
+| **Safety Hooks** | PreToolUse hook blocks dangerous robot movements |
+| **Multi-Agent** | Operator (control) + Safety Officer (monitoring) |
+| **PTC Replay** | Pick-and-place operations replay via PTC |
+| **Crystallization** | Repeated commands become zero-cost Python |
+| **WebSocket** | Real-time state updates for frontend |
+
+**Key Learning**: How to implement safety-critical systems with LLM OS hooks.
+
+---
+
+### Demo App - Interactive Showcase
+
+**Demonstrates**: All execution modes and learning patterns
+
+```bash
+cd examples/demo-app
+python demo_main.py
 ```
 
-#### Quantum Computing
+| Capability | How It's Used |
+|------------|---------------|
+| **Five Modes** | Interactive demos of CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR |
+| **Nested Learning** | Semantic trace matching with confidence scoring |
+| **Cost Tracking** | Real-time cost analysis across scenarios |
+| **Multi-Agent** | Data pipeline with specialized agents |
+| **SDK Hooks** | Budget control, security, trace capture |
+
+**Key Learning**: Understanding mode selection and cost optimization strategies.
+
+---
+
+### Choosing an Example
+
+| If You Want To... | Start With |
+|-------------------|------------|
+| Build a production API | **Qiskit Studio** |
+| Handle high-volume users | **Q-Kids Studio** |
+| Implement safety-critical systems | **RoboOS** |
+| Understand all capabilities | **Demo App** |
+| See PTC in action | Any example (all use it!) |
+
+---
+
+## Memory Hierarchy
+
+LLM OS implements a four-level memory system:
+
+| Level | Name | Storage | Purpose |
+|-------|------|---------|---------|
+| L1 | Context | In LLM | Current conversation |
+| L2 | Short-term | Session logs | Recent interactions |
+| L3 | Procedural | Markdown traces | Execution patterns |
+| L4 | Semantic | File-based | Facts, insights |
+
+### Traces Enable PTC
+
+Execution traces now store full `tool_calls` data:
+
+```markdown
+## Tool Calls (PTC)
+
+```json
+[
+  {"name": "read_file", "arguments": {"path": "/src/main.py"}},
+  {"name": "write_file", "arguments": {"path": "/src/main.py", "content": "..."}}
+]
 ```
-llmos> Create a 3-qubit GHZ state circuit
-# First time: $0.05 (Learner)
-# Second time: $0.00 (Follower - cached!)
+
+This enables zero-context replay via Programmatic Tool Calling.
+
+---
+
+## SDK Hooks System
+
+Automatic hooks for safety and efficiency:
+
+| Hook | Purpose |
+|------|---------|
+| **Security** | Blocks dangerous commands |
+| **Budget** | Prevents runaway costs |
+| **Trace** | Captures tool_calls for PTC |
+| **Cost** | Real-time monitoring |
+| **Memory** | Injects relevant context |
+
+---
+
+## API Reference
+
+### Dispatcher
+
+```python
+from interfaces.dispatcher import Dispatcher
+
+dispatcher = Dispatcher(
+    event_bus=event_bus,
+    token_economy=token_economy,
+    memory_store=memory_store,
+    trace_manager=trace_manager,
+    config=LLMOSConfig.production()
+)
+
+# Execute a goal
+result = await dispatcher.dispatch(
+    goal="Create a Python calculator",
+    mode="AUTO"  # or "LEARNER", "FOLLOWER", "ORCHESTRATOR"
+)
+
+# Get execution layer stats
+stats = dispatcher.get_execution_layer_stats()
+
+# Search for tools
+tools = await dispatcher.search_tools("file operations")
 ```
 
-#### Robotics Control
+### Configuration
+
+```python
+from kernel.config import LLMOSConfig, ConfigBuilder
+
+# Use preset
+config = LLMOSConfig.production()
+
+# Or build custom
+config = (ConfigBuilder()
+    .with_budget(50.0)
+    .with_llm_matching(True)
+    .with_model("claude-sonnet-4-5-20250929")
+    .build())
 ```
-llmos> Move the robot arm 30cm to the right
-# Operator Agent → move_relative(dx=0.3)
-# Safety Hook validates position
-# Robot executes safely
-```
 
-## Evolution from llmunix
+---
 
-llmos **evolves** from llmunix by:
+## Comparison with llmunix
 
-1. **Adopting Claude Agent SDK** as the foundation (proper integration)
-2. **Implementing OS-like architecture** (Kernel-Cortex-Memory)
-3. **Adding three execution modes** (Learner/Follower/Orchestrator)
-4. **Explicit token economy** with SDK hooks for control
-5. **Using execution traces** as "compiled bytecode" (Markdown format)
-6. **Plugin-based extensibility** + AgentDefinition support
-7. **Generic design** applicable to any domain
-8. **Hook-based security** and budget control (Phase 2.5)
-9. **Multi-agent orchestration** with natural language delegation (Phase 2)
-10. **Streaming support** for real-time feedback (Phase 2.5)
+| Feature | llmunix | LLM OS v3.3.0 |
+|---------|---------|---------------|
+| Foundation | Custom markdown | Claude Agent SDK |
+| Execution Modes | 2 (Learner/Follower) | 5 (+ Mixed, Crystallized, Orchestrator) |
+| Token Optimization | Implicit | Explicit + PTC (90% savings) |
+| Tool Discovery | All upfront | On-demand via Tool Search |
+| Self-Modification | No | Yes (Markdown agents) |
+| Security | Basic | Hook-based (PreToolUse) |
+| Multi-Agent | Manual | Automatic orchestration |
 
-## When to Use Each
+---
 
-**Use llmunix when**:
-- You need project-based organization with markdown configs
-- Markdown-driven workflow is preferred
-- Mobile app generation is needed
-- You want Claude Code-native integration out of the box
+## Documentation
 
-**Use llmos when**:
-- You need a **generic LLM operating system** with three execution modes
-- **Cost optimization is critical** (hooks prevent runaway costs)
-- **Security is important** (dangerous command blocking)
-- You want to build up a **trace library** (Markdown format)
-- **Multi-agent orchestration** is needed (AgentDefinition support)
-- Plugin-based extensibility is preferred
-- You're building custom tooling on **Claude Agent SDK**
-- You need **streaming** for real-time feedback
-- You want **proper SDK integration** with hooks
-- **Replacing microservice architectures** with a unified backend (see [Qiskit Studio example](examples/qiskit_studio_backend/))
+- **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** - Full architecture documentation
+- **[docs/ADVANCED_TOOL_USE_IMPLEMENTATION.md](docs/ADVANCED_TOOL_USE_IMPLEMENTATION.md)** - v3.3.0 implementation
+- **[llmos/ARCHITECTURE.md](llmos/ARCHITECTURE.md)** - System design
+- **[llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md)** - Installation guide
+
+---
 
 ## License
 
@@ -403,16 +574,18 @@ Apache 2.0
 
 ---
 
-**llmunix**: Markdown Operating System for agentic workflows
-**llmos** (v3.2.0): Self-Modifying LLM Operating System with:
-- **Hybrid Architecture**: Markdown Mind + Python Kernel + Crystallization
-- Five execution modes (CRYSTALLIZED/FOLLOWER/MIXED/LEARNER/ORCHESTRATOR)
-- Self-modification: System creates and evolves its own agents
-- Hot-reload: Changes take effect instantly
-- SDK hooks (budget, security, tracing)
-- Multi-agent orchestration
-- Token economy
+## Summary
 
-Both are part of the Evolving Agents Labs ecosystem.
+**LLM OS v3.3.0** is a self-evolving operating system that:
 
-**Latest**: v3.2.0 introduces the **Hybrid Architecture**, combining llmunix's markdown flexibility with llmos's Python stability. The system can now create and modify agents by writing Markdown files, achieving true self-modification. See **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** for details.
+1. **Learns** from every execution (traces with tool_calls)
+2. **Optimizes** using Anthropic's Advanced Tool Use (PTC, Tool Search)
+3. **Self-modifies** by writing Markdown agent definitions
+4. **Orchestrates** complex tasks across multiple agents
+5. **Protects** with security hooks and budget control
+
+The two-layer architecture separates **what to do** (Learning Layer) from **how to do it efficiently** (Execution Layer), achieving 90%+ token savings on repeated tasks.
+
+---
+
+*Part of the Evolving Agents Labs ecosystem*

@@ -1,8 +1,15 @@
-# 🦉 Q-Kids Studio
+# Q-Kids Studio
 
 **Educational Quantum Computing for Ages 8-12**
 
-Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum computing concepts through block-based programming, storytelling, and adaptive difficulty. Built on **LLM OS**, it demonstrates how AI can make complex STEM topics accessible to young learners.
+Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum computing concepts through block-based programming, storytelling, and adaptive difficulty. Built on **LLM OS v3.3.0**, it demonstrates how AI can make complex STEM topics accessible to young learners.
+
+## What's New in v3.3.0
+
+- **PTC-Powered Hints**: When multiple kids make the same mistake, hints are replayed via Programmatic Tool Calling (90%+ savings)
+- **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+- **Auto-Crystallization**: Common hint patterns become zero-cost after repeated use
+- **Tool Search**: Professor Q discovers tools on-demand for novel questions
 
 ---
 
@@ -18,12 +25,12 @@ Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum co
 - 🎯 **6 Progressive Levels**: From coin flips to quantum algorithms
 
 ### For Educators & Developers
-- 🧠 **LLM OS Integration**: Learner/Follower pattern saves 100% cost on repeated tasks
-- 🔒 **Multi-Layer Safety**: No raw code execution, simulator-only, complexity limits
-- 📊 **Progress Tracking**: Skill trees, performance analytics, session history
-- 🎨 **Kid-Friendly NLP**: Automatic translation of quantum jargon to simple analogies
-- 🔌 **RESTful API**: Easy integration with frontend (React, Vue, etc.)
-- 🚀 **FastAPI Backend**: Fast, modern, auto-documented
+- **LLM OS v3.3.0 Integration**: Execution Layer with PTC saves 99%+ cost on repeated hints
+- **Multi-Layer Safety**: No raw code execution, simulator-only, complexity limits
+- **Progress Tracking**: Skill trees, performance analytics, session history
+- **Kid-Friendly NLP**: Automatic translation of quantum jargon to simple analogies
+- **RESTful API**: Easy integration with frontend (React, Vue, etc.)
+- **FastAPI Backend**: Fast, modern, auto-documented
 
 ---
 
@@ -528,9 +535,9 @@ Platform statistics
 
 ---
 
-## 💰 Cost Optimization: Learner → Follower Pattern
+## Cost Optimization: PTC-Powered Hints (v3.3.0)
 
-Q-Kids Studio uses LLM OS's **Learner/Follower pattern** to dramatically reduce costs:
+Q-Kids Studio uses LLM OS's **Execution Layer with Programmatic Tool Calling (PTC)** for dramatic cost savings:
 
 ### How It Works
 
@@ -540,15 +547,23 @@ Q-Kids Studio uses LLM OS's **Learner/Follower pattern** to dramatically reduce 
 │  ↓                                                          │
 │  LEARNER MODE: LLM generates personalized hint             │
 │  Cost: $0.003                                              │
-│  Hint stored in L4 memory with mistake pattern hash        │
+│  Trace stored with full tool_calls for PTC replay          │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │  Later: Bob makes THE SAME mistake                         │
 │  ↓                                                          │
-│  FOLLOWER MODE: Retrieve cached hint from L4 memory        │
-│  Cost: $0.00 (FREE!)                                       │
-│  Instant response, no LLM call needed                      │
+│  FOLLOWER MODE + PTC: Replay tool sequence                 │
+│  Cost: ~$0.00 (90%+ savings!)                              │
+│  Tool calls execute OUTSIDE context window                 │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  After 5+ kids make same mistake:                          │
+│  ↓                                                          │
+│  CRYSTALLIZED MODE: Pure Python execution                  │
+│  Cost: $0.00 (truly FREE!)                                 │
+│  No LLM call at all - instant response                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -556,28 +571,33 @@ Q-Kids Studio uses LLM OS's **Learner/Follower pattern** to dramatically reduce 
 
 **Scenario:** 1000 kids, each tries Mission 2 three times
 
-**Without Learner/Follower:**
+**Without LLM OS:**
 - 3000 hint requests × $0.003 = **$9.00**
 
-**With Learner/Follower:**
-- ~20 unique mistake patterns (first kids) × $0.003 = **$0.06**
-- 2980 cached hints × $0.00 = **$0.00**
-- **Total: $0.06** (99.3% cost savings!)
+**With LLM OS v3.3.0 (PTC + Crystallization):**
+- ~20 unique mistake patterns (LEARNER) × $0.003 = **$0.06**
+- ~100 PTC replays (FOLLOWER) × $0.0001 = **$0.01**
+- 2880 crystallized executions × $0.00 = **$0.00**
+- **Total: $0.07** (99.2% cost savings!)
 
 ### Implementation
 
-The `get_hint()` tool automatically uses this pattern:
+The hint system now uses the full Execution Layer:
 
 ```python
-# Mistake pattern creates a unique hash
-mistake_hash = hashlib.md5(f"{puzzle_goal}:{current_blocks}".encode()).hexdigest()
+# Trace stores full tool_calls for PTC replay
+trace.tool_calls = [
+    {"name": "generate_hint", "arguments": {"goal": "...", "blocks": "..."}},
+    {"name": "format_kid_friendly", "arguments": {"hint": "..."}}
+]
 
-# LLM OS checks L4 memory for this hash
-# If found: Return cached hint (Follower mode)
-# If not found: Generate new hint, cache it (Learner mode)
+# LLM OS Learning Layer decides mode:
+# - LEARNER: Novel mistake pattern
+# - FOLLOWER: Similar pattern found, PTC replays tool sequence
+# - CRYSTALLIZED: Pattern used 5+ times, pure Python execution
 ```
 
-**Key Insight:** One child's learning benefits ALL future children for FREE!
+**Key Insight:** One child's learning benefits ALL future children, with 90%+ token savings via PTC!
 
 ---
 

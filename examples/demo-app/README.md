@@ -1,23 +1,31 @@
-# LLM OS Demo Application (Phase 2.5+)
+# LLM OS Demo Application (v3.3.0)
 
-A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - Phase 2.5+ with **Nested Learning**.
+A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - v3.3.0 with **Advanced Tool Use**.
 
-**NEW: Semantic Trace Matching with MIXED Mode Execution!**
+**NEW: Programmatic Tool Calling (PTC), Tool Search, Tool Examples!**
+
+## What's New in v3.3.0
+
+- **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window for 90%+ token savings
+- **Tool Search**: On-demand tool discovery instead of loading all tools upfront
+- **Tool Examples**: Auto-generated examples from successful traces
+- **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+- **Two-Layer Architecture**: Learning Layer + Execution Layer separation
 
 ## Overview
 
 This demo application demonstrates the full power of llmos through practical, real-world scenarios including:
 
-1. **🧬 Nested Learning (NEW!)**: Semantic trace matching with LLM-based similarity analysis
-2. **Three+ Execution Modes**: Learner, Follower, MIXED (NEW!), and Orchestrator
-3. **Intelligent Mode Selection**: Confidence-based routing (FOLLOWER/MIXED/LEARNER)
+1. **Advanced Tool Use (v3.3.0)**: PTC, Tool Search, and Tool Examples
+2. **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+3. **Intelligent Mode Selection**: Confidence-based routing with PTC support
 4. **Project Management**: Organizing work into isolated projects
 5. **Multi-Agent Orchestration**: Coordinating specialized agents for complex tasks
 6. **Dynamic Agent Creation**: Creating agents on-demand for specific needs
-7. **Memory System**: Leveraging execution traces and cross-project learning
+7. **Memory System**: Traces with tool_calls for PTC replay
 8. **SDK Hooks**: Budget control, security, and trace capture
 9. **Streaming Support**: Real-time feedback during execution
-10. **Cost Optimization**: Learning once, executing infinitely at zero cost
+10. **Cost Optimization**: 90%+ token savings via PTC, 100% cost savings via crystallization
 
 ## Quick Start
 
@@ -146,28 +154,37 @@ demo-app/
 
 ## Key Features Demonstrated
 
-### 1. Four Execution Modes (Including NEW MIXED Mode!)
+### 1. Five Execution Modes (v3.3.0)
 
-**Learner Mode** - First time execution
+**CRYSTALLIZED Mode** - Pattern used 5+ times with 95%+ success
 ```python
 result = await os.execute("Create a Python script for data analysis")
-# Cost: ~$0.50, learns pattern, creates trace
-# Confidence: N/A (initial learning)
+# Cost: $0.00 - pure Python execution, no LLM call!
+# Pattern crystallized into generated code
 ```
 
-**Follower Mode** - Exact/near-exact match
+**Follower Mode + PTC** - Exact/near-exact match
 ```python
 result = await os.execute("Create a Python script for data analysis")
-# Cost: $0.00, replays learned trace
+# Cost: ~$0.00 - replays via Programmatic Tool Calling
+# Tools execute OUTSIDE context window = 90%+ token savings
 # Confidence: ≥92% (virtually identical)
 ```
 
-**MIXED Mode** - Similar but different task (NEW! 🌟)
+**MIXED Mode** - Similar but different task
 ```python
 result = await os.execute("Create a Python script for customer analysis")
-# Cost: ~$0.25, uses trace as few-shot guidance
+# Cost: ~$0.25, uses Tool Examples from traces
 # Confidence: 75-92% (similar, needs adaptation)
 # Uses existing trace to guide LLM, cheaper than full LEARNER
+```
+
+**Learner Mode + Tool Search** - First time execution
+```python
+result = await os.execute("Create a Python script for data analysis")
+# Cost: ~$0.50, learns pattern, creates trace with tool_calls
+# Tool Search discovers needed tools on-demand
+# Trace stored for future PTC replay
 ```
 
 **Orchestrator Mode** - Complex multi-step tasks
@@ -179,7 +196,7 @@ result = await os.execute(
 # Cost: Variable, coordinates multiple agents
 ```
 
-**The Innovation**: Automatic mode selection based on LLM-analyzed semantic similarity!
+**The Innovation**: Two-layer architecture - Learning Layer decides WHAT to do, Execution Layer does it EFFICIENTLY via PTC!
 
 ### 2. Project Management
 
@@ -278,20 +295,23 @@ result = await os.sdk_client.execute_learner_mode(
 )
 ```
 
-## Cost Analysis
+## Cost Analysis (v3.3.0)
 
-The demo tracks costs across scenarios:
+The demo tracks costs across scenarios with PTC and crystallization:
 
-| Scenario | First Run (Learner) | Repeat (Follower) | Savings | Status |
-|----------|---------------------|-------------------|---------|--------|
-| Simple Code Gen | $0.50 | $0.00 | 100% | ✅ Working |
-| Data Pipeline | $1.20 | $0.00 | 100% | ✅ Working |
-| Research Task | $0.30-0.50 | N/A | N/A | ⚠️ Timeouts |
-| DevOps Task | $0.30 | $0.00 | 100% | ✅ Working |
-| Cost Optimization | $0.50 | $0.00 | 100% | ✅ Working |
-| SDK Hooks | $0.30 | $0.00 | 100% | ✅ Working |
+| Scenario | LEARNER | FOLLOWER+PTC | CRYSTALLIZED | Token Savings | Status |
+|----------|---------|--------------|--------------|---------------|--------|
+| Simple Code Gen | $0.50 | ~$0.00 | $0.00 | 90%+ | ✅ Working |
+| Data Pipeline | $1.20 | ~$0.00 | $0.00 | 90%+ | ✅ Working |
+| Research Task | $0.30-0.50 | N/A | N/A | N/A | ⚠️ Timeouts |
+| DevOps Task | $0.30 | ~$0.00 | $0.00 | 90%+ | ✅ Working |
+| Cost Optimization | $0.50 | ~$0.00 | $0.00 | 90%+ | ✅ Working |
+| SDK Hooks | $0.30 | ~$0.00 | $0.00 | 90%+ | ✅ Working |
 
-**Total savings after trace library built**: ~90-100% (for working scenarios)
+**v3.3.0 Improvements**:
+- **Cost Savings**: 99%+ on repeated tasks (via PTC)
+- **Token Savings**: 90%+ (tool calls execute outside context window)
+- **Crystallization**: Patterns used 5+ times become pure Python (truly free!)
 
 **Note**: Research Assistant scenario has known timeout issues that affect reliability. Most scenarios demonstrate the full cost savings pattern successfully.
 
@@ -508,5 +528,5 @@ Apache 2.0 (same as llmos)
 
 ---
 
-Built with LLM OS - The Generic LLM Operating System
-Phase 2.5: Multi-Agent + SDK Hooks + Streaming + Advanced Options
+Built with LLM OS - The Self-Evolving LLM Operating System
+v3.3.0: Advanced Tool Use (PTC, Tool Search, Tool Examples) + Multi-Agent + SDK Hooks

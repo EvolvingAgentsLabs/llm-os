@@ -23,6 +23,15 @@ class ExecutionTrace:
 
     Represents a learned execution pattern that can be reused
     in Follower mode.
+
+    Architecture:
+        - Learning Layer uses traces to decide mode (FOLLOWER vs LEARNER)
+        - Execution Layer uses tool_calls for PTC replay (if available)
+
+    The tool_calls field enables Programmatic Tool Calling (PTC):
+        - Stores full tool call details (name + arguments)
+        - Allows zero-context replay via code execution
+        - Critical for Anthropic's Advanced Tool Use integration
     """
     goal_signature: str  # Hash of normalized goal
     goal_text: str  # Original goal text
@@ -32,16 +41,22 @@ class ExecutionTrace:
     last_used: Optional[datetime]
     estimated_cost_usd: float
     estimated_time_secs: float
-    mode: str  # "LEARNER", "FOLLOWER", "ORCHESTRATOR"
+    mode: str  # "LEARNER", "FOLLOWER", "ORCHESTRATOR", "CRYSTALLIZED"
 
     # Optional metadata
-    tools_used: List[str] = None
+    tools_used: List[str] = None  # List of tool names (for quick filtering)
     output_summary: str = ""
     error_notes: str = ""
     crystallized_into_tool: Optional[str] = None  # Name of generated tool (HOPE architecture)
 
+    # PTC (Programmatic Tool Calling) support
+    # This enables zero-context replay via Anthropic's Advanced Tool Use
+    tool_calls: Optional[List[Dict[str, Any]]] = None  # Full tool call data: [{name, arguments}, ...]
+
     def to_markdown(self) -> str:
         """Convert trace to markdown format"""
+        import json
+
         lines = [
             f"# Execution Trace: {self.goal_text}",
             "",
@@ -59,6 +74,10 @@ class ExecutionTrace:
         if self.crystallized_into_tool:
             lines.append(f"- **Crystallized Tool**: `{self.crystallized_into_tool}` 💎")
 
+        # Indicate PTC capability
+        if self.tool_calls:
+            lines.append(f"- **PTC Enabled**: Yes ({len(self.tool_calls)} calls)")
+
         lines.append("")
 
         if self.tools_used:
@@ -67,6 +86,17 @@ class ExecutionTrace:
                 "",
                 "```",
                 ", ".join(self.tools_used),
+                "```",
+                ""
+            ])
+
+        # Store full tool calls for PTC replay
+        if self.tool_calls:
+            lines.extend([
+                "## Tool Calls (PTC)",
+                "",
+                "```json",
+                json.dumps(self.tool_calls, indent=2),
                 "```",
                 ""
             ])
@@ -92,28 +122,43 @@ class ExecutionTrace:
     @classmethod
     def from_markdown(cls, content: str) -> 'ExecutionTrace':
         """Parse trace from markdown"""
+        import json
+
         lines = content.splitlines()
 
         # Extract metadata
         metadata = {}
         tools_used = []
+        tool_calls = None
         output_summary = ""
         error_notes = ""
 
         current_section = None
         section_lines = []
+        in_json_block = False
+        json_lines = []
 
         for line in lines:
             # Section headers
             if line.startswith("## "):
+                # Process previous section
                 if current_section and section_lines:
                     if current_section == "Output Summary":
                         output_summary = "\n".join(section_lines).strip()
                     elif current_section == "Error Notes":
                         error_notes = "\n".join(section_lines).strip()
 
+                # Handle JSON block end for Tool Calls
+                if current_section == "Tool Calls (PTC)" and json_lines:
+                    try:
+                        tool_calls = json.loads("\n".join(json_lines))
+                    except json.JSONDecodeError:
+                        pass
+                    json_lines = []
+
                 current_section = line[3:].strip()
                 section_lines = []
+                in_json_block = False
                 continue
 
             # Metadata parsing
@@ -123,11 +168,27 @@ class ExecutionTrace:
                     key, value = match.groups()
                     metadata[key] = value.strip('`')
 
-            # Tools parsing
+            # Tools Used parsing
             elif current_section == "Tools Used" and line.strip() and line.strip() != "```":
                 tools_used = [t.strip() for t in line.split(",")]
 
-            # Content accumulation
+            # Tool Calls (PTC) JSON parsing
+            elif current_section == "Tool Calls (PTC)":
+                if line.strip() == "```json":
+                    in_json_block = True
+                    continue
+                elif line.strip() == "```":
+                    in_json_block = False
+                    if json_lines:
+                        try:
+                            tool_calls = json.loads("\n".join(json_lines))
+                        except json.JSONDecodeError:
+                            pass
+                        json_lines = []
+                elif in_json_block:
+                    json_lines.append(line)
+
+            # Content accumulation for other sections
             elif current_section in ["Output Summary", "Error Notes"]:
                 section_lines.append(line)
 
@@ -136,6 +197,11 @@ class ExecutionTrace:
             output_summary = "\n".join(section_lines).strip()
         elif current_section == "Error Notes" and section_lines:
             error_notes = "\n".join(section_lines).strip()
+        elif current_section == "Tool Calls (PTC)" and json_lines:
+            try:
+                tool_calls = json.loads("\n".join(json_lines))
+            except json.JSONDecodeError:
+                pass
 
         # Extract goal from title
         goal_text = lines[0].replace("# Execution Trace: ", "").strip() if lines else "Unknown"
@@ -156,7 +222,8 @@ class ExecutionTrace:
             tools_used=tools_used if tools_used else None,
             output_summary=output_summary,
             error_notes=error_notes,
-            crystallized_into_tool=crystallized_tool
+            crystallized_into_tool=crystallized_tool,
+            tool_calls=tool_calls
         )
 
 

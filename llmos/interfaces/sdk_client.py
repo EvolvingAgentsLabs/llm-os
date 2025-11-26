@@ -52,11 +52,16 @@ class TraceBuilder:
 
     Captures tool usage, outputs, and metadata during execution
     to create replayable traces for Follower mode.
+
+    Now also captures full tool_calls for PTC (Programmatic Tool Calling):
+    - Stores tool name AND arguments for each call
+    - Enables zero-context replay via Anthropic's Advanced Tool Use
     """
 
     def __init__(self, goal: str):
         self.goal = goal
         self.tools_used: List[str] = []
+        self.tool_calls: List[Dict[str, Any]] = []  # NEW: Full tool call data for PTC
         self.output_parts: List[str] = []
         self.error_notes: List[str] = []
         self.start_time = datetime.now()
@@ -75,8 +80,16 @@ class TraceBuilder:
                 if isinstance(block, TextBlock):
                     self.output_parts.append(block.text)
                 elif isinstance(block, ToolUseBlock):
+                    # Track tool name (for quick filtering)
                     if block.name not in self.tools_used:
                         self.tools_used.append(block.name)
+
+                    # NEW: Store full tool call data for PTC replay
+                    self.tool_calls.append({
+                        "name": block.name,
+                        "arguments": block.input if hasattr(block, 'input') else {},
+                        "id": block.id if hasattr(block, 'id') else None
+                    })
 
         # Extract from ResultMessage
         elif isinstance(message, ResultMessage):
@@ -84,6 +97,24 @@ class TraceBuilder:
             self.cost_usd = message.total_cost_usd
             # Consider it successful if no error in result
             self.success = not hasattr(message, 'error') or message.error is None
+
+    def add_tool_call(self, name: str, arguments: Dict[str, Any], tool_id: str = None):
+        """
+        Manually add a tool call (for non-SDK execution paths)
+
+        Args:
+            name: Tool name
+            arguments: Tool arguments
+            tool_id: Optional tool call ID
+        """
+        if name not in self.tools_used:
+            self.tools_used.append(name)
+
+        self.tool_calls.append({
+            "name": name,
+            "arguments": arguments,
+            "id": tool_id
+        })
 
     def add_error(self, error: str):
         """Add error note"""
@@ -109,7 +140,8 @@ class TraceBuilder:
             mode="LEARNER",
             tools_used=self.tools_used if self.tools_used else None,
             output_summary="\n".join(self.output_parts[:5]) if self.output_parts else "",
-            error_notes="\n".join(self.error_notes) if self.error_notes else ""
+            error_notes="\n".join(self.error_notes) if self.error_notes else "",
+            tool_calls=self.tool_calls if self.tool_calls else None  # NEW: For PTC
         )
 
 

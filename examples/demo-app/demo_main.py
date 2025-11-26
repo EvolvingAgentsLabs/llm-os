@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-LLM OS Demo Application - Main Entry Point
+LLM OS Demo Application - Main Entry Point (v3.3.0)
 
-Interactive menu-driven demonstration of all llmos capabilities.
+Interactive menu-driven demonstration of all llmos capabilities including:
+- Advanced Tool Use (PTC, Tool Search, Tool Examples)
+- Five Execution Modes: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+- 90%+ token savings via Programmatic Tool Calling
 """
 
 import asyncio
@@ -68,12 +71,12 @@ class DemoApp:
         """Display welcome banner"""
         banner = """
 [bold cyan]╔══════════════════════════════════════════════════════════════╗[/bold cyan]
-[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (Phase 2.5+)[/bold yellow]            [bold cyan]║[/bold cyan]
-[bold cyan]║[/bold cyan]    Featuring: 🧬 Nested Learning (Semantic Matching)    [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (v3.3.0)[/bold yellow]                 [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    Advanced Tool Use: PTC, Tool Search, Tool Examples   [bold cyan]║[/bold cyan]
 [bold cyan]╚══════════════════════════════════════════════════════════════╝[/bold cyan]
 
-[bold]Three Execution Modes:[/bold] Learner | Follower | MIXED (NEW!)
-[bold]Features:[/bold] Nested Learning, Multi-Agent, Projects, Memory, Hooks
+[bold]Five Execution Modes:[/bold] CRYSTALLIZED | FOLLOWER | MIXED | LEARNER | ORCHESTRATOR
+[bold]Features:[/bold] PTC (90%+ savings), Tool Search, Nested Learning, Multi-Agent
 [bold]Budget:[/bold] $""" + f"{self.budget_usd:.2f}"
 
         console.print(Panel(banner, border_style="cyan"))
@@ -198,12 +201,12 @@ class DemoApp:
     async def scenario_2_code_generation(self):
         """Scenario 2: Code Generation with Trace Learning"""
         console.print(Panel(
-            "[bold yellow]Scenario 2: Code Generation Workflow[/bold yellow]\n\n"
-            "Demonstrates the Learn-Once, Execute-Free pattern:\n"
-            "1. First run: Learner mode (~$0.50) - creates trace\n"
-            "2. Second run: Follower mode ($0.00) - replays trace\n\n"
-            "[bold]Mode:[/bold] Learner → Follower\n"
-            "[bold]Savings:[/bold] 100% on repeat executions",
+            "[bold yellow]Scenario 2: Code Generation Workflow (v3.3.0)[/bold yellow]\n\n"
+            "Demonstrates the Learn-Once, Execute-Free pattern with PTC:\n"
+            "1. First run: Learner mode (~$0.50) - creates trace with tool_calls\n"
+            "2. Second run: Follower mode + PTC (~$0.00) - replays via Programmatic Tool Calling\n\n"
+            "[bold]Mode:[/bold] Learner → Follower (PTC)\n"
+            "[bold]Savings:[/bold] 90%+ tokens, 100% cost on repeat executions",
             border_style="yellow"
         ))
 
@@ -412,12 +415,13 @@ IMPORTANT CONSTRAINTS:
     async def scenario_6_cost_optimization(self):
         """Scenario 6: Cost Optimization Demo"""
         console.print(Panel(
-            "[bold yellow]Scenario 6: Cost Optimization Demo[/bold yellow]\n\n"
-            "Demonstrates dramatic cost savings through trace learning:\n"
+            "[bold yellow]Scenario 6: Cost Optimization Demo (v3.3.0)[/bold yellow]\n\n"
+            "Demonstrates dramatic savings through PTC and crystallization:\n"
             "1. Execute task 5 times\n"
-            "2. First run: Learner mode (expensive)\n"
-            "3. Runs 2-5: Follower mode (free)\n\n"
-            "[bold]Expected Savings:[/bold] 80% overall",
+            "2. First run: Learner mode (creates trace with tool_calls)\n"
+            "3. Runs 2-4: Follower mode + PTC (90%+ token savings)\n"
+            "4. Run 5+: CRYSTALLIZED mode (pure Python, truly FREE)\n\n"
+            "[bold]Expected Savings:[/bold] 80%+ cost, 90%+ tokens",
             border_style="yellow"
         ))
 
