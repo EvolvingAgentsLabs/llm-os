@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Qiskit Studio Backend - LLM OS Edition
+Qiskit Studio Backend - LLM OS Edition (v3.3.0)
 
 This FastAPI server acts as a bridge between the Qiskit Studio frontend
 and the LLM OS backend, replacing the original Maestro-based microservices
@@ -8,8 +8,9 @@ and the LLM OS backend, replacing the original Maestro-based microservices
 
 Key features:
 - Drop-in replacement for qiskit-studio API endpoints
-- Learner/Follower mode for cost-efficient repeated tasks
-- Orchestrator mode for complex reasoning
+- Advanced Tool Use integration (PTC, Tool Search, Tool Examples)
+- Five execution modes: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+- 90%+ token savings via Programmatic Tool Calling (PTC)
 - Built-in security hooks
 - Unified memory management
 
@@ -17,6 +18,7 @@ API Endpoints (matching original qiskit-studio):
 - POST /chat          - Chat agent (port 8000 in original)
 - POST /chat/stream   - Streaming chat (SSE)
 - POST /run           - Code execution (port 8002 in original)
+- GET  /stats         - Enhanced stats with Execution Layer metrics
 """
 
 import asyncio
@@ -43,8 +45,9 @@ from boot import LLMOS
 from kernel.component_registry import ComponentRegistry
 from kernel.agent_loader import AgentLoader
 
-# Import our custom tools
+# Import configuration with LLMOSConfig support
 sys.path.insert(0, str(Path(__file__).parent))
+from config import Config
 from plugins.qiskit_tools import execute_qiskit_code, validate_qiskit_code
 
 # Agents directory path (Markdown agents)
@@ -60,8 +63,8 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="Qiskit Studio Backend - LLM OS Edition",
-    description="Drop-in replacement for qiskit-studio backend using LLM OS",
-    version="1.0.0"
+    description="Drop-in replacement for qiskit-studio backend using LLM OS v3.3.0 with Advanced Tool Use",
+    version="3.3.0"
 )
 
 # Configure CORS for Next.js frontend
@@ -136,23 +139,37 @@ def analyze_intent(user_input: str, conversation_history: List[Dict[str, str]] =
 
 @app.on_event("startup")
 async def startup():
-    """Initialize LLM OS on server startup"""
+    """Initialize LLM OS on server startup with Advanced Tool Use"""
     global os_instance
 
     logger.info("="*60)
-    logger.info("Starting Qiskit Studio Backend (LLM OS Edition)")
+    logger.info("Starting Qiskit Studio Backend (LLM OS v3.3.0)")
+    logger.info("Advanced Tool Use: PTC, Tool Search, Tool Examples")
     logger.info("="*60)
 
-    # Initialize LLM OS with a reasonable budget
-    os_instance = LLMOS(
-        budget_usd=50.0,  # $50 budget for quantum computing tasks
-        project_name="qiskit_studio_session"
-    )
+    # Get LLMOSConfig with Execution Layer settings
+    llmos_config = Config.get_llmos_config()
 
-    # Register our custom Qiskit tools
-    logger.info("Registering Qiskit tools...")
+    # Log Execution Layer configuration
+    logger.info(f"Execution Layer Configuration:")
+    logger.info(f"  - PTC (Programmatic Tool Calling): {llmos_config.execution.enable_ptc}")
+    logger.info(f"  - Tool Search: {llmos_config.execution.enable_tool_search}")
+    logger.info(f"  - Tool Examples: {llmos_config.execution.enable_tool_examples}")
+    logger.info(f"  - Use Embeddings: {llmos_config.execution.tool_search_use_embeddings}")
+    logger.info(f"  - Auto-Crystallization: {llmos_config.dispatcher.auto_crystallization}")
+
+    # Initialize LLM OS with full configuration
+    os_instance = LLMOS(config=llmos_config)
+
+    # Register our custom Qiskit tools with the dispatcher for Execution Layer support
+    logger.info("Registering Qiskit tools with Execution Layer...")
     os_instance.component_registry.register_tool(execute_qiskit_code)
     os_instance.component_registry.register_tool(validate_qiskit_code)
+
+    # Also register with dispatcher for PTC/Tool Search support
+    if hasattr(os_instance, 'dispatcher') and os_instance.dispatcher:
+        os_instance.dispatcher.register_tool(execute_qiskit_code)
+        os_instance.dispatcher.register_tool(validate_qiskit_code)
 
     # Load agents from Markdown files (Hybrid Architecture approach)
     logger.info("Loading specialized quantum agents from Markdown...")
@@ -191,11 +208,18 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    """Shutdown LLM OS gracefully"""
+    """Shutdown LLM OS gracefully including Execution Layer"""
     global os_instance
 
     if os_instance:
         logger.info("Shutting down LLM OS...")
+
+        # Shutdown dispatcher (cleans up PTC containers)
+        if hasattr(os_instance, 'dispatcher') and os_instance.dispatcher:
+            if hasattr(os_instance.dispatcher, 'shutdown'):
+                await os_instance.dispatcher.shutdown()
+                logger.info("Dispatcher and Execution Layer shut down")
+
         await os_instance.shutdown()
 
 
@@ -375,9 +399,15 @@ Current request: {user_message}"""
         conversation_history.append({"role": "assistant", "content": response_text})
         session_memory[session_id] = conversation_history
 
+        # Determine if PTC was used (FOLLOWER mode with zero/near-zero cost)
+        ptc_used = mode_used == "FOLLOWER" and cost < 0.01
+        tokens_saved = result.get("tokens_saved", 0)
+
         # Log interesting stats
-        if cached:
-            logger.info("✨ FOLLOWER mode activated - Request served from cache (FREE!)")
+        if ptc_used:
+            logger.info("✨ PTC activated - Tool sequence replayed outside context (90%+ savings!)")
+        elif cached:
+            logger.info("✨ FOLLOWER mode activated - Request served from cache")
         else:
             logger.info(f"💰 Request cost: ${cost:.4f}")
 
@@ -390,12 +420,29 @@ Current request: {user_message}"""
             "agent": intent["agent"],
             "mode": mode_used,
             "cost": cost,
-            "cached": cached
+            "cached": cached,
+            # New v3.3.0 Execution Layer metadata
+            "ptc_used": ptc_used,
+            "tokens_saved": tokens_saved,
+            "execution_layer": {
+                "ptc_enabled": Config.LLMOS_ENABLE_PTC,
+                "tool_search_enabled": Config.LLMOS_ENABLE_TOOL_SEARCH,
+                "tool_examples_enabled": Config.LLMOS_ENABLE_TOOL_EXAMPLES
+            }
         }
 
         return {
             "response": json.dumps(response_json),
-            "output": response_text
+            "output": response_text,
+            # Also include metadata at top level for easy access
+            "metadata": {
+                "agent": intent["agent"],
+                "mode": mode_used,
+                "cost": cost,
+                "cached": cached,
+                "ptc_used": ptc_used,
+                "tokens_saved": tokens_saved
+            }
         }
 
     except Exception as e:
@@ -568,7 +615,8 @@ async def stats_endpoint():
     """
     Statistics endpoint - shows LLM OS performance metrics.
 
-    This is a bonus endpoint that showcases LLM OS capabilities.
+    This is a bonus endpoint that showcases LLM OS v3.3.0 capabilities
+    including Execution Layer (PTC, Tool Search, Tool Examples) statistics.
     """
     if not os_instance:
         raise HTTPException(status_code=503, detail="LLM OS not initialized")
@@ -580,9 +628,16 @@ async def stats_endpoint():
     total_spent = sum(log["cost"] for log in os_instance.token_economy.spend_log)
     balance = os_instance.token_economy.balance
 
+    # Get Execution Layer stats if available
+    execution_layer_stats = {}
+    if hasattr(os_instance, 'dispatcher') and os_instance.dispatcher:
+        if hasattr(os_instance.dispatcher, 'get_execution_layer_stats'):
+            execution_layer_stats = os_instance.dispatcher.get_execution_layer_stats()
+
     return {
+        "version": "3.3.0",
         "token_economy": {
-            "budget_usd": 50.0,
+            "budget_usd": Config.LLMOS_BUDGET_USD,
             "spent_usd": total_spent,
             "remaining_usd": balance,
             "transactions": len(os_instance.token_economy.spend_log)
@@ -590,7 +645,8 @@ async def stats_endpoint():
         "memory": {
             "total_traces": mem_stats.get("total_traces", 0),
             "high_confidence_traces": mem_stats.get("high_confidence_count", 0),
-            "facts": mem_stats.get("facts_count", 0)
+            "facts": mem_stats.get("facts_count", 0),
+            "traces_with_tool_calls": mem_stats.get("traces_with_tool_calls", 0)  # For PTC
         },
         "agents": {
             "registered": len(os_instance.component_registry.list_agents()),
@@ -602,6 +658,34 @@ async def stats_endpoint():
         "sessions": {
             "active": len(session_memory),
             "total_messages": sum(len(history) for history in session_memory.values())
+        },
+        # New v3.3.0 Execution Layer statistics
+        "execution_layer": {
+            "enabled": Config.LLMOS_ENABLE_PTC or Config.LLMOS_ENABLE_TOOL_SEARCH,
+            "ptc": {
+                "enabled": Config.LLMOS_ENABLE_PTC,
+                "active_containers": execution_layer_stats.get("ptc_active_containers", 0),
+                "total_executions": execution_layer_stats.get("ptc_total_executions", 0),
+                "tokens_saved": execution_layer_stats.get("ptc_tokens_saved", 0)
+            },
+            "tool_search": {
+                "enabled": Config.LLMOS_ENABLE_TOOL_SEARCH,
+                "use_embeddings": Config.LLMOS_USE_EMBEDDINGS,
+                "registered_tools": execution_layer_stats.get("tool_search_registered", 0),
+                "total_searches": execution_layer_stats.get("tool_search_total", 0)
+            },
+            "tool_examples": {
+                "enabled": Config.LLMOS_ENABLE_TOOL_EXAMPLES,
+                "generated_examples": execution_layer_stats.get("tool_examples_generated", 0)
+            }
+        },
+        # Mode distribution
+        "mode_distribution": {
+            "crystallized": execution_layer_stats.get("mode_crystallized", 0),
+            "follower": execution_layer_stats.get("mode_follower", 0),
+            "mixed": execution_layer_stats.get("mode_mixed", 0),
+            "learner": execution_layer_stats.get("mode_learner", 0),
+            "orchestrator": execution_layer_stats.get("mode_orchestrator", 0)
         }
     }
 

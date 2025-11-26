@@ -1,9 +1,17 @@
 """
 Dispatcher - The Brain of the LLM OS
 Decides between Learner, Follower, and Orchestration modes based on token economy
+
+Architecture:
+- Learning Layer: TraceManager, ModeStrategies (decides WHAT to do)
+- Execution Layer: PTC, Tool Search, Tool Examples (does it EFFICIENTLY)
+
+The Dispatcher bridges these two layers:
+1. Learning Layer decides the mode (CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR)
+2. Execution Layer executes that decision efficiently using Anthropic's Advanced Tool Use
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 from pathlib import Path
 
 from kernel.bus import EventBus
@@ -20,6 +28,20 @@ from memory.traces_sdk import TraceManager, ExecutionTrace
 from memory.query_sdk import MemoryQueryInterface
 from interfaces.cortex import Cortex
 from interfaces.sdk_client import LLMOSSDKClient, is_sdk_available
+
+# Execution Layer imports (Anthropic Advanced Tool Use)
+# These are imported directly to avoid circular dependencies
+try:
+    from execution.ptc import PTCExecutor, ToolSequence, ToolCall
+    from execution.tool_search import ToolSearchEngine, ToolDefinition
+    from execution.tool_examples import ToolExampleGenerator
+    EXECUTION_LAYER_AVAILABLE = True
+except ImportError:
+    EXECUTION_LAYER_AVAILABLE = False
+    PTCExecutor = None
+    ToolSearchEngine = None
+    ToolExampleGenerator = None
+    print("⚠️  Execution Layer not available - Advanced Tool Use features disabled")
 
 
 class TaskBlock:
@@ -48,10 +70,22 @@ class Dispatcher:
     The Dispatcher - Makes the Learner/Follower/Orchestration decision
     This is the "operating system scheduler" that optimizes for token cost
 
-    Now supports three modes:
-    1. FOLLOWER: Execute proven trace (fast, cheap, deterministic)
-    2. LEARNER: Learn new pattern (slow, expensive, creative)
-    3. ORCHESTRATOR: Multi-agent coordination (complex, adaptive, powerful)
+    Architecture:
+        Learning Layer (decides WHAT to do):
+        - TraceManager: Stores execution history
+        - ModeSelectionStrategy: Analyzes and decides mode
+
+        Execution Layer (does it EFFICIENTLY):
+        - PTCExecutor: Executes tool sequences outside context (CRYSTALLIZED/FOLLOWER)
+        - ToolSearchEngine: On-demand tool discovery (LEARNER/ORCHESTRATOR)
+        - ToolExampleGenerator: Auto-generates examples from traces (all modes)
+
+    Modes:
+        1. CRYSTALLIZED: Execute via PTC (instant, free)
+        2. FOLLOWER: Replay trace via PTC (fast, cheap)
+        3. MIXED: Trace-guided LLM with examples (medium cost)
+        4. LEARNER: Full LLM with tool search (expensive, creative)
+        5. ORCHESTRATOR: Multi-agent with tool search (complex)
     """
 
     def __init__(
@@ -63,7 +97,8 @@ class Dispatcher:
         project_manager: Optional[ProjectManager] = None,
         workspace: Optional[Path] = None,
         config: Optional[LLMOSConfig] = None,
-        strategy: Optional[ModeSelectionStrategy] = None
+        strategy: Optional[ModeSelectionStrategy] = None,
+        tools: Optional[Dict[str, Callable]] = None
     ):
         self.event_bus = event_bus
         self.token_economy = token_economy
@@ -71,8 +106,9 @@ class Dispatcher:
         self.trace_manager = trace_manager
         self.project_manager = project_manager
         self.workspace = workspace or Path("./workspace")
+        self.tools = tools or {}  # Registered tool functions
 
-        # Configuration and strategy
+        # Configuration and strategy (Learning Layer)
         self.config = config or LLMOSConfig()
         self.strategy = strategy or get_strategy("auto")
 
@@ -97,6 +133,98 @@ class Dispatcher:
         else:
             print("⚠️  Claude Agent SDK not available - using fallback cortex mode")
             print("   Install with: pip install claude-agent-sdk")
+
+        # =====================================================================
+        # EXECUTION LAYER (Anthropic Advanced Tool Use)
+        # =====================================================================
+        self._init_execution_layer()
+
+    def _init_execution_layer(self):
+        """
+        Initialize the Execution Layer components
+
+        These handle EFFICIENT execution of decisions made by the Learning Layer.
+        """
+        exec_config = self.config.execution
+
+        # Check if Execution Layer is available
+        if not EXECUTION_LAYER_AVAILABLE:
+            self.ptc_executor = None
+            self.tool_search = None
+            self.tool_examples = None
+            return
+
+        # PTC Executor (for CRYSTALLIZED/FOLLOWER modes)
+        self.ptc_executor = None
+        if exec_config.enable_advanced_tool_use and exec_config.enable_ptc and PTCExecutor:
+            self.ptc_executor = PTCExecutor(
+                tools=self.tools,
+                container_timeout_secs=exec_config.ptc_container_timeout_secs,
+                max_containers=exec_config.ptc_max_containers
+            )
+            print("✓ PTC Executor initialized (Programmatic Tool Calling)")
+
+        # Tool Search Engine (for LEARNER/ORCHESTRATOR modes)
+        self.tool_search = None
+        if exec_config.enable_advanced_tool_use and exec_config.enable_tool_search and ToolSearchEngine:
+            self.tool_search = ToolSearchEngine(
+                use_embeddings=exec_config.tool_search_use_embeddings,
+                embedding_model=exec_config.tool_search_embedding_model
+            )
+            print("✓ Tool Search Engine initialized")
+
+        # Tool Example Generator (for all modes)
+        self.tool_examples = None
+        if exec_config.enable_advanced_tool_use and exec_config.enable_tool_examples and ToolExampleGenerator:
+            self.tool_examples = ToolExampleGenerator(
+                trace_manager=self.trace_manager,
+                min_success_rate=exec_config.tool_examples_min_success_rate,
+                max_examples_per_tool=exec_config.tool_examples_max_per_tool
+            )
+            print("✓ Tool Example Generator initialized")
+
+        if exec_config.enable_advanced_tool_use:
+            print(f"✓ Execution Layer ready (beta: {exec_config.beta_header})")
+
+    def register_tool(
+        self,
+        name: str,
+        func: Callable,
+        description: str = "",
+        defer_loading: bool = None
+    ):
+        """
+        Register a tool with the Dispatcher
+
+        Tools are registered in both layers:
+        - Execution Layer: For PTC and Tool Search
+        - Learning Layer: For trace recording
+
+        Args:
+            name: Tool name
+            func: Tool function (sync or async)
+            description: Tool description
+            defer_loading: Whether to defer loading (default from config)
+        """
+        # Register in tools dict
+        self.tools[name] = func
+
+        # Update PTC executor if available
+        if self.ptc_executor:
+            self.ptc_executor.tools[name] = func
+
+        # Register in Tool Search if available
+        if self.tool_search:
+            should_defer = defer_loading if defer_loading is not None else \
+                          self.config.execution.defer_tools_by_default
+
+            tool_def = ToolDefinition(
+                name=name,
+                description=description or func.__doc__ or f"Execute {name}",
+                input_schema={},  # Would need introspection
+                defer_loading=should_defer
+            )
+            self.tool_search.register_tool(tool_def)
 
     async def _ensure_cortex(self):
         """Lazy initialization of cortex"""
@@ -282,6 +410,10 @@ class Dispatcher:
         Dispatch to Follower mode (direct trace replay)
 
         Used when confidence ≥0.92 (virtually identical to previous execution)
+
+        Execution Strategy:
+        - If PTC enabled and trace has tool_calls: Use PTC (zero-context execution)
+        - Otherwise: Fall back to cortex replay
         """
         # Try to find trace with LLM matching
         result = await self.trace_manager.find_trace_with_llm(goal, min_confidence=0.92)
@@ -295,11 +427,42 @@ class Dispatcher:
                     "error": "No trace found for Follower mode",
                     "mode": "FOLLOWER"
                 }
+            confidence = 1.0  # Hash match = exact
         else:
             trace, confidence = result
 
         print(f"💡 Cost: ~$0, Time: ~{trace.estimated_time_secs:.1f}s")
 
+        # =====================================================================
+        # EXECUTION LAYER: Try PTC first (Anthropic Advanced Tool Use)
+        # =====================================================================
+        if self.ptc_executor and hasattr(trace, 'tool_calls') and trace.tool_calls:
+            print("⚡ Using PTC (Programmatic Tool Calling) - zero context execution")
+
+            ptc_result = await self.ptc_executor.execute_from_trace(trace)
+
+            if ptc_result.success:
+                # Update trace statistics
+                self.trace_manager.update_usage(trace.goal_signature)
+
+                print(f"✓ PTC execution complete - saved ~{ptc_result.tokens_saved} tokens")
+
+                return {
+                    "success": True,
+                    "mode": "FOLLOWER",
+                    "execution_method": "PTC",
+                    "trace": trace,
+                    "cost": 0.0,
+                    "tokens_saved": ptc_result.tokens_saved,
+                    "results": ptc_result.results
+                }
+            else:
+                print(f"⚠️ PTC execution failed: {ptc_result.error}")
+                print("   Falling back to cortex replay...")
+
+        # =====================================================================
+        # FALLBACK: Cortex replay (original method)
+        # =====================================================================
         await self._ensure_cortex()
         success = await self.cortex.follow(trace)
 
@@ -309,6 +472,7 @@ class Dispatcher:
         return {
             "success": success,
             "mode": "FOLLOWER",
+            "execution_method": "cortex",
             "trace": trace,
             "cost": 0.0
         }
@@ -433,6 +597,10 @@ Use the above as guidance, but adapt as needed for the current goal.
 
         Uses Claude Agent SDK when available for proper integration.
         Falls back to cortex if SDK not installed.
+
+        Execution Strategy (with Execution Layer):
+        - Tool Search: Load tools on-demand instead of all upfront
+        - Tool Examples: Include auto-generated examples from successful traces
         """
         estimated_cost = 0.50
 
@@ -447,6 +615,24 @@ Use the above as guidance, but adapt as needed for the current goal.
                 "error": str(e),
                 "mode": "LEARNER"
             }
+
+        # =====================================================================
+        # EXECUTION LAYER: Prepare efficient tool loading
+        # =====================================================================
+        tool_search_enabled = False
+        tool_examples_enabled = False
+
+        if self.tool_search and self.config.execution.enable_tool_search:
+            tool_search_enabled = True
+            stats = self.tool_search.get_statistics()
+            print(f"🔍 Tool Search enabled ({stats['deferred_tools']} deferred, "
+                  f"{stats['immediate_tools']} immediate)")
+
+        if self.tool_examples and self.config.execution.enable_tool_examples:
+            tool_examples_enabled = True
+            stats = self.tool_examples.get_statistics()
+            print(f"📚 Tool Examples enabled ({stats['tools_with_examples']} tools "
+                  f"with {stats['total_examples']} examples)")
 
         # Use SDK client if available (PROPER WAY)
         if self.sdk_client:
@@ -477,6 +663,10 @@ Use the above as guidance, but adapt as needed for the current goal.
                     f"Learner: {goal[:50]}..."
                 )
 
+            # Add execution layer metadata
+            result["tool_search_enabled"] = tool_search_enabled
+            result["tool_examples_enabled"] = tool_examples_enabled
+
             return result
 
         # Fallback to cortex (if SDK not available)
@@ -499,7 +689,9 @@ Use the above as guidance, but adapt as needed for the current goal.
                 "success": True,
                 "mode": "LEARNER",
                 "trace": trace,
-                "cost": actual_cost
+                "cost": actual_cost,
+                "tool_search_enabled": tool_search_enabled,
+                "tool_examples_enabled": tool_examples_enabled
             }
 
     async def _dispatch_orchestrator(
@@ -548,3 +740,99 @@ Use the above as guidance, but adapt as needed for the current goal.
             "execution_time": result.execution_time_secs,
             "state_summary": result.state_summary
         }
+
+    # =========================================================================
+    # EXECUTION LAYER UTILITIES
+    # =========================================================================
+
+    def get_execution_layer_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about the Execution Layer
+
+        Returns information about:
+        - PTC: Container count, tools registered
+        - Tool Search: Deferred vs immediate tools
+        - Tool Examples: Examples generated from traces
+        """
+        stats = {
+            "enabled": self.config.execution.enable_advanced_tool_use,
+            "beta_header": self.config.execution.beta_header
+        }
+
+        # PTC stats
+        if self.ptc_executor:
+            stats["ptc"] = {
+                "enabled": True,
+                "tools_registered": len(self.ptc_executor.tools),
+                "active_containers": len(self.ptc_executor._containers),
+                "max_containers": self.ptc_executor.max_containers
+            }
+        else:
+            stats["ptc"] = {"enabled": False}
+
+        # Tool Search stats
+        if self.tool_search:
+            stats["tool_search"] = self.tool_search.get_statistics()
+        else:
+            stats["tool_search"] = {"enabled": False}
+
+        # Tool Examples stats
+        if self.tool_examples:
+            stats["tool_examples"] = self.tool_examples.get_statistics()
+        else:
+            stats["tool_examples"] = {"enabled": False}
+
+        return stats
+
+    def get_enhanced_tool_definitions(self) -> list:
+        """
+        Get tool definitions enhanced with examples from traces
+
+        These are ready to use with the Anthropic API's input_examples field.
+
+        Returns:
+            List of tool definitions with auto-generated examples
+        """
+        if not self.tool_examples:
+            return []
+
+        if not self.ptc_executor:
+            return []
+
+        # Get base definitions from PTC executor
+        definitions = self.ptc_executor.get_tool_definitions_for_ptc()
+
+        # Enhance with examples
+        return self.tool_examples.enhance_tool_definitions(definitions)
+
+    async def search_tools(self, query: str, top_k: int = 5) -> list:
+        """
+        Search for tools by description
+
+        This is the interface to the Tool Search Engine.
+
+        Args:
+            query: Natural language description of needed capability
+            top_k: Maximum results
+
+        Returns:
+            List of ToolReference objects
+        """
+        if not self.tool_search:
+            return []
+
+        return self.tool_search.search(query, top_k=top_k)
+
+    def shutdown(self):
+        """
+        Shutdown the Dispatcher and cleanup resources
+
+        Particularly important for PTC containers.
+        """
+        if self.ptc_executor:
+            self.ptc_executor.shutdown_all()
+            print("✓ PTC containers shutdown")
+
+        if self.tool_examples:
+            self.tool_examples.clear_cache()
+            print("✓ Tool examples cache cleared")

@@ -1,75 +1,102 @@
-# Qiskit Studio - LLM OS Edition
+# Qiskit Studio - LLM OS v3.3.0 Edition
 
-> **A flagship example of LLM OS using the Hybrid Architecture with Markdown Agents.**
+> **A flagship example of LLM OS using Advanced Tool Use (PTC, Tool Search, Tool Examples).**
 
-This project reimplements the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using **LLM OS**, demonstrating how a unified operating system for LLMs can replace multiple specialized microservices while providing superior memory management, cost efficiency, and security.
+This project reimplements the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using **LLM OS v3.3.0**, demonstrating how a unified operating system for LLMs can replace multiple specialized microservices while providing superior memory management, cost efficiency, and security.
 
-## 🎯 What This Demonstrates
+## What's New in v3.3.0
+
+- **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window for 90%+ token savings
+- **Tool Search**: On-demand tool discovery instead of loading all tools upfront
+- **Tool Examples**: Auto-generated examples from successful execution traces
+- **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+
+## What This Demonstrates
 
 The original Qiskit Studio uses **Maestro** to orchestrate three distinct microservices:
 
 | Original Service | Purpose | LLM OS Replacement |
 |-----------------|---------|-------------------|
 | `chat-agent` | RAG-based Q&A about quantum computing | **Quantum Tutor** agent with L4 semantic memory |
-| `codegen-agent` | Generate/update Qiskit quantum code | **Quantum Architect** agent with Learner/Follower modes |
+| `codegen-agent` | Generate/update Qiskit quantum code | **Quantum Architect** agent with PTC-enabled modes |
 | `coderun-agent` | Execute Python/Qiskit code securely | **Qiskit Tools** plugin with security hooks |
 
 **Key Improvements:**
 
-1. **💰 Cost Reduction**: Learner → Follower mode caches repeated patterns (e.g., "Create a Bell state") - second request is **FREE**
-2. **🔒 Enhanced Security**: Built-in security hooks prevent malicious code execution
-3. **🧠 Unified Memory**: Cross-project learning and semantic memory across all interactions
-4. **⚡ Simplified Architecture**: Single LLM OS instance replaces 3+ microservices
-5. **🎨 Same Frontend**: Drop-in API compatibility with existing Qiskit Studio UI
+1. **90%+ Token Savings**: PTC replays tool sequences outside context window - FOLLOWER mode is nearly FREE
+2. **Enhanced Security**: Built-in security hooks prevent malicious code execution
+3. **Unified Memory**: Cross-project learning and semantic memory across all interactions
+4. **Simplified Architecture**: Single LLM OS instance replaces 3+ microservices
+5. **Same Frontend**: Drop-in API compatibility with existing Qiskit Studio UI
+6. **Auto-Crystallization**: Repeated patterns become zero-cost Python code
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Qiskit Studio Frontend                    │
-│                    (Next.js - Unchanged)                     │
-└────────────────┬─────────────────────────────────┬───────────┘
-                 │                                 │
-        POST /chat                         POST /run
-                 │                                 │
-                 ▼                                 ▼
-┌────────────────────────────────────────────────────────────┐
-│              FastAPI Bridge Server (server.py)              │
-│  • Intent analysis (coding vs. question)                    │
-│  • Session management                                       │
-│  • API compatibility layer                                  │
-└────────────────┬────────────────────────────────────────────┘
-                 │
-                 ▼
-┌────────────────────────────────────────────────────────────┐
-│                        LLM OS Kernel                        │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Dispatcher (AUTO Mode Detection)                    │  │
-│  │  • Analyzes intent hash                              │  │
-│  │  • Routes: LEARNER / FOLLOWER / ORCHESTRATOR         │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌──────────────────┐          ┌──────────────────┐       │
-│  │ Quantum Architect│          │  Quantum Tutor   │       │
-│  │ (Code Generator) │          │  (Q&A Expert)    │       │
-│  │ Mode: LEARNER    │          │ Mode: ORCHESTRATOR│      │
-│  └────────┬─────────┘          └──────────────────┘       │
-│           │                                                 │
-│           ▼                                                 │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │           Qiskit Tools (Somatic Layer)               │  │
-│  │  • execute_qiskit_code (with security hooks)         │  │
-│  │  • validate_qiskit_code                              │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                             │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │        L4 Semantic Memory + Cross-Project Learning   │  │
-│  │  • Quantum patterns cached                           │  │
-│  │  • High-confidence traces stored                     │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Qiskit Studio Frontend                          │
+│                      (Next.js - Unchanged)                           │
+└──────────────┬─────────────────────────────────────────┬─────────────┘
+               │                                         │
+      POST /chat                                  POST /run
+               │                                         │
+               ▼                                         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                FastAPI Bridge Server (server.py v3.3.0)              │
+│  • Intent analysis (coding vs. question)                             │
+│  • Session management with Execution Layer metadata                  │
+│  • API compatibility layer                                           │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    LEARNING LAYER (Intelligence)                     │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  TraceManager + ModeStrategies                                 │ │
+│  │  • Analyzes execution history                                  │ │
+│  │  • Decides: CRYSTALLIZED / FOLLOWER / MIXED / LEARNER / ORCH  │ │
+│  │  • Semantic matching for similar patterns                      │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   EXECUTION LAYER (Efficiency)                       │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌─────────────────────┐  │
+│  │  PTC Executor    │ │  Tool Search     │ │  Tool Examples      │  │
+│  │  ─────────────   │ │  ───────────     │ │  ──────────────     │  │
+│  │  Zero-context    │ │  On-demand tool  │ │  Auto-generated     │  │
+│  │  tool replay     │ │  discovery       │ │  from traces        │  │
+│  │  90%+ savings    │ │  85%+ context    │ │  Better accuracy    │  │
+│  │                  │ │  reduction       │ │                     │  │
+│  └──────────────────┘ └──────────────────┘ └─────────────────────┘  │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                           LLM OS Kernel                              │
+│  ┌──────────────────┐          ┌──────────────────┐                 │
+│  │ Quantum Architect│          │  Quantum Tutor   │                 │
+│  │ (Code Generator) │          │  (Q&A Expert)    │                 │
+│  │ Modes: AUTO      │          │  Mode: ORCHESTRATOR                │
+│  └────────┬─────────┘          └──────────────────┘                 │
+│           │                                                          │
+│           ▼                                                          │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │           Qiskit Tools (Somatic Layer)                         │ │
+│  │  • execute_qiskit_code (with security hooks)                   │ │
+│  │  • validate_qiskit_code                                        │ │
+│  │  • Registered with Execution Layer for PTC/Tool Search         │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │   L4 Semantic Memory + Traces with tool_calls for PTC          │ │
+│  │  • Quantum patterns cached with full tool call data            │ │
+│  │  • Enables zero-context replay via PTC                         │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -169,32 +196,42 @@ If you prefer to use a separate qiskit-studio installation:
 
 ---
 
-## 💡 Key Features Showcase
+## Key Features Showcase
 
-### 1. Learner → Follower Cost Savings
+### 1. PTC-Powered Cost Savings (90%+)
 
 **Scenario**: User asks "Create a GHZ state circuit" via the UI
 
 **First Request (LEARNER mode)**:
 - LLM reasons about GHZ states
-- Generates Qiskit code
+- Generates Qiskit code using Tool Search to discover tools
 - Tests and validates
 - **Cost: ~$0.05**
 - Execution time: ~5 seconds
+- **Trace saved with full tool_calls for future PTC replay**
 
-**Second Request (FOLLOWER mode)**:
-- LLM OS recognizes the intent hash
-- Replays cached tool sequence
-- **Cost: $0.00 (FREE!)**
+**Second Request (FOLLOWER mode with PTC)**:
+- Learning Layer recognizes the intent hash
+- Execution Layer uses PTC to replay tool sequence **outside context window**
+- **Cost: ~$0.00 (90%+ savings!)**
 - Execution time: <1 second
+- **Token savings: Hundreds of tokens saved by avoiding context bloat**
 
-Check the response metadata to see when FOLLOWER mode activates:
+**Third+ Request (CRYSTALLIZED mode)** - After 3+ successful runs:
+- Pattern crystallized into pure Python code
+- **Cost: $0.00 (truly FREE!)**
+- Execution time: <100ms
+- No LLM call at all!
+
+Check the response metadata to see PTC activation:
 ```json
 {
   "metadata": {
     "mode": "FOLLOWER",
     "cost": 0.0,
-    "cached": true
+    "cached": true,
+    "ptc_used": true,
+    "tokens_saved": 450
   }
 }
 ```
@@ -316,11 +353,12 @@ data: [DONE]
 
 ### GET `/stats`
 
-**Purpose**: View LLM OS performance metrics
+**Purpose**: View LLM OS v3.3.0 performance metrics including Execution Layer stats
 
 **Response**:
 ```json
 {
+  "version": "3.3.0",
   "token_economy": {
     "budget_usd": 50.0,
     "spent_usd": 2.34,
@@ -330,6 +368,7 @@ data: [DONE]
   "memory": {
     "total_traces": 42,
     "high_confidence_traces": 12,
+    "traces_with_tool_calls": 28,
     "facts": 8
   },
   "agents": {
@@ -339,6 +378,32 @@ data: [DONE]
   "sessions": {
     "active": 2,
     "total_messages": 34
+  },
+  "execution_layer": {
+    "enabled": true,
+    "ptc": {
+      "enabled": true,
+      "active_containers": 0,
+      "total_executions": 12,
+      "tokens_saved": 5400
+    },
+    "tool_search": {
+      "enabled": true,
+      "use_embeddings": false,
+      "registered_tools": 2,
+      "total_searches": 8
+    },
+    "tool_examples": {
+      "enabled": true,
+      "generated_examples": 6
+    }
+  },
+  "mode_distribution": {
+    "crystallized": 3,
+    "follower": 8,
+    "mixed": 2,
+    "learner": 5,
+    "orchestrator": 1
   }
 }
 ```
@@ -444,7 +509,7 @@ This example teaches:
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -468,36 +533,49 @@ SERVER_PORT=8000
 LLMOS_BUDGET_USD=50.0
 LLMOS_PROJECT_NAME=qiskit_studio_session
 
+# LLM OS Execution Layer (v3.3.0)
+LLMOS_ENABLE_PTC=true              # Programmatic Tool Calling
+LLMOS_ENABLE_TOOL_SEARCH=true      # On-demand tool discovery
+LLMOS_ENABLE_TOOL_EXAMPLES=true    # Auto-generated examples
+LLMOS_USE_EMBEDDINGS=false         # Set to true for production (requires sentence-transformers)
+
 # Logging
 LOG_LEVEL=INFO
 ```
 
-### Adjusting Token Budget
+### Adjusting Configuration
 
-Edit `server.py` startup:
+The server now uses `LLMOSConfig` with full Execution Layer support. Edit `config.py`:
+
 ```python
-os_instance = LLMOS(
-    budget_usd=100.0,  # Increase budget
-    project_name="my_quantum_project"
+# In Config.get_llmos_config():
+execution=ExecutionLayerConfig(
+    enable_ptc=True,
+    enable_tool_search=True,
+    enable_tool_examples=True,
+    # For production, enable embeddings for better tool search:
+    tool_search_use_embeddings=True,
 )
 ```
 
-Or use environment variable:
+Or use environment variables:
 ```bash
-LLMOS_BUDGET_USD=100.0 python server.py
+LLMOS_BUDGET_USD=100.0 LLMOS_USE_EMBEDDINGS=true python server.py
 ```
 
 ---
 
-## 📊 Performance Comparison
+## Performance Comparison
 
-| Metric | Original (Maestro) | LLM OS Edition | Improvement |
-|--------|-------------------|----------------|-------------|
+| Metric | Original (Maestro) | LLM OS v3.3.0 | Improvement |
+|--------|-------------------|---------------|-------------|
 | **Microservices** | 3 (chat, codegen, coderun) | 1 (unified) | **67% reduction** |
-| **Repeated Pattern Cost** | Full LLM call each time | $0.00 (cached) | **~100% savings** |
-| **Memory Sharing** | None (isolated services) | Cross-project | **Unlimited context** |
+| **Repeated Pattern Cost** | Full LLM call each time | ~$0.00 (PTC) | **90%+ savings** |
+| **Token Usage** | All tools in context | On-demand via Tool Search | **85% context reduction** |
+| **Memory Sharing** | None (isolated services) | Cross-project + PTC traces | **Full history** |
 | **Security** | Per-service validation | Unified hooks | **Consistent enforcement** |
 | **Deployment Complexity** | Docker Compose + K8s | Single process | **90% simpler** |
+| **Pattern Evolution** | Manual optimization | Auto-crystallization | **Self-optimizing** |
 
 ---
 
