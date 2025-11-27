@@ -1,5 +1,5 @@
 """
-RoboOS - FastAPI Server
+RoboOS - FastAPI Server (v3.4.0)
 
 Production-ready REST API server for robot control via LLM OS.
 
@@ -9,6 +9,7 @@ This server provides:
 - State visualization (cockpit/operator views)
 - WebSocket for real-time updates
 - Session management
+- Sentience Layer integration for adaptive behavior
 """
 
 import sys
@@ -27,7 +28,10 @@ from pydantic import BaseModel
 import uvicorn
 
 from boot.llm_os import LLMOS
+from boot.config import LLMOSConfig, SentienceConfig
 from kernel.agent_loader import AgentLoader
+from sentience.sentience import SentienceManager
+from sentience.cognitive_kernel import CognitiveKernel
 from plugins.robot_controller import ROBOT_CONTROLLER_TOOLS
 from robot_state import get_robot_state, reset_robot_state
 from safety_hook import get_safety_hook
@@ -71,8 +75,8 @@ class ViewRequest(BaseModel):
 
 app = FastAPI(
     title="RoboOS API",
-    description="LLM OS-powered robot control system",
-    version="1.0.0"
+    description="LLM OS-powered robot control system with Sentience Layer",
+    version="3.4.0"
 )
 
 # CORS middleware for frontend integration
@@ -94,17 +98,49 @@ operator_agent = None
 safety_officer_agent = None
 websocket_connections: list[WebSocket] = []
 
+# Sentience Layer components (v3.4.0)
+sentience_manager: Optional[SentienceManager] = None
+cognitive_kernel: Optional[CognitiveKernel] = None
+
 
 # ============================================================================
 # Initialization
 # ============================================================================
 
 def initialize_llmos():
-    """Initialize LLM OS instance and agents."""
+    """Initialize LLM OS instance, agents, and Sentience Layer."""
     global llmos_instance, operator_agent, safety_officer_agent
+    global sentience_manager, cognitive_kernel
 
     if llmos_instance is not None:
         return  # Already initialized
+
+    # Configure LLM OS with robotics-focused sentience settings
+    # High safety setpoint is critical for robot control
+    config = LLMOSConfig(
+        workspace=Path(__file__).parent / "workspace",
+        sentience=SentienceConfig(
+            enable_sentience=True,
+            safety_setpoint=0.8,  # Very high safety for robot control
+            curiosity_setpoint=0.1,  # Low curiosity - focus on precision
+            energy_setpoint=0.6,  # Moderate energy for sustained operation
+            self_confidence_setpoint=0.5,  # Balanced confidence
+            boredom_threshold=-0.4,  # Higher threshold - routine is good for robots
+            state_file="state/robo_sentience.json"
+        )
+    )
+
+    # Initialize Sentience Layer
+    sentience_config = config.sentience
+    sentience_manager = SentienceManager(
+        safety_setpoint=sentience_config.safety_setpoint,
+        curiosity_setpoint=sentience_config.curiosity_setpoint,
+        energy_setpoint=sentience_config.energy_setpoint,
+        self_confidence_setpoint=sentience_config.self_confidence_setpoint,
+        boredom_threshold=sentience_config.boredom_threshold
+    )
+    cognitive_kernel = CognitiveKernel(sentience_manager)
+    print("✓ Sentience Layer initialized (robotics profile)")
 
     # Create LLM OS instance
     llmos_instance = LLMOS()
@@ -174,13 +210,14 @@ async def root():
     """Root endpoint with service info."""
     return {
         "service": "RoboOS API",
-        "version": "1.0.0",
+        "version": "3.4.0",
         "status": "operational",
-        "message": "LLM OS-powered robot control system",
+        "message": "LLM OS-powered robot control system with Sentience Layer",
         "endpoints": {
             "docs": "/docs",
             "health": "/health",
             "state": "/state",
+            "sentience": "/sentience",
             "command": "/command [POST]",
             "move": "/move [POST]",
             "tool": "/tool [POST]",
@@ -234,11 +271,27 @@ async def execute_command(request: CommandRequest):
     if agent is None:
         raise HTTPException(status_code=500, detail="Agent not initialized")
 
+    # Get current sentience state for adaptive behavior
+    sentience_state = None
+    if sentience_manager and cognitive_kernel:
+        policy = cognitive_kernel.derive_policy()
+        sentience_state = {
+            "latent_mode": policy.latent_mode.value,
+            "valence": sentience_manager.get_valence(),
+            "safety_level": "high" if sentience_manager.get_valence()["safety"] > 0.6 else "normal"
+        }
+        # Track command as interaction
+        sentience_manager.on_interaction()
+
     try:
         # Execute command
         response = await agent.run(request.command)
 
-        return {
+        # Track successful execution
+        if sentience_manager:
+            sentience_manager.on_success()
+
+        result = {
             "success": True,
             "command": request.command,
             "agent": request.agent,
@@ -246,7 +299,16 @@ async def execute_command(request: CommandRequest):
             "timestamp": datetime.now().isoformat()
         }
 
+        # Include sentience state if available
+        if sentience_state:
+            result["sentience"] = sentience_state
+
+        return result
+
     except Exception as e:
+        # Track failure
+        if sentience_manager:
+            sentience_manager.on_failure()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -332,12 +394,67 @@ async def get_safety_status():
 
     is_safe, reason = robot_state.safety_limits.is_position_safe(robot_state.position)
 
-    return {
+    result = {
         "current_position_safe": is_safe,
         "reason": reason,
         "emergency_stop": robot_state.emergency_stop,
         "violations": safety_hook.get_violations_summary(),
         "safety_limits": robot_state.safety_limits.to_dict()
+    }
+
+    # Include sentience safety level
+    if sentience_manager:
+        valence = sentience_manager.get_valence()
+        result["sentience_safety"] = {
+            "safety_valence": valence["safety"],
+            "level": "critical" if valence["safety"] > 0.7 else "elevated" if valence["safety"] > 0.5 else "normal"
+        }
+
+    return result
+
+
+@app.get("/sentience")
+async def get_sentience_state():
+    """
+    Get current Sentience Layer state (v3.4.0).
+
+    Returns internal valence variables and derived latent mode.
+    This is used to understand the system's current behavioral profile.
+    """
+    if not sentience_manager or not cognitive_kernel:
+        return {
+            "enabled": False,
+            "message": "Sentience Layer not initialized"
+        }
+
+    valence = sentience_manager.get_valence()
+    policy = cognitive_kernel.derive_policy()
+
+    # Robotics-specific mode descriptions
+    mode_descriptions = {
+        "auto_creative": "ADAPTIVE mode - Exploring alternative approaches (unusual for robotics)",
+        "auto_contained": "PRECISION mode - Focused on exact, controlled movements",
+        "balanced": "STANDARD mode - Normal operation within safety parameters",
+        "recovery": "RECOVERY mode - Reduced operations, conservative movements",
+        "cautious": "MAXIMUM SAFETY mode - Extra validation, minimal movements"
+    }
+
+    return {
+        "enabled": True,
+        "valence": valence,
+        "latent_mode": policy.latent_mode.value,
+        "mode_description": mode_descriptions.get(policy.latent_mode.value, "Unknown mode"),
+        "policy": {
+            "exploration_rate": policy.exploration_rate,
+            "verbosity": policy.verbosity,
+            "self_improvement_enabled": policy.self_improvement_enabled
+        },
+        "robotics_profile": {
+            "safety_priority": "HIGH" if valence["safety"] > 0.6 else "NORMAL",
+            "precision_mode": valence["curiosity"] < 0.2,  # Low curiosity = high precision
+            "operational_readiness": valence["energy"] > 0.4
+        },
+        "timestamp": datetime.now().isoformat()
     }
 
 
@@ -384,6 +501,7 @@ async def websocket_endpoint(websocket: WebSocket):
     WebSocket endpoint for real-time robot state updates.
 
     Clients can connect to receive live updates when robot state changes.
+    Includes sentience state in v3.4.0+.
     """
     await websocket.accept()
     websocket_connections.append(websocket)
@@ -392,11 +510,22 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             # Send periodic state updates
             robot_state = get_robot_state()
-            await websocket.send_json({
+            update = {
                 "type": "state_update",
                 "state": robot_state.get_state(),
                 "timestamp": datetime.now().isoformat()
-            })
+            }
+
+            # Include sentience state in updates
+            if sentience_manager and cognitive_kernel:
+                policy = cognitive_kernel.derive_policy()
+                update["sentience"] = {
+                    "latent_mode": policy.latent_mode.value,
+                    "safety_valence": sentience_manager.get_valence()["safety"],
+                    "operational_readiness": sentience_manager.get_valence()["energy"] > 0.4
+                }
+
+            await websocket.send_json(update)
             await asyncio.sleep(1)  # Update every second
 
     except WebSocketDisconnect:

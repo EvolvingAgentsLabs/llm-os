@@ -2,9 +2,16 @@
 
 **Using Large Language Models as the Cognitive Layer for Robotic Control**
 
-RoboOS demonstrates how **LLM OS v3.3.0** can serve as the "brain" of a robotic arm, translating natural language commands into precise, coordinated actions. Built on the latest LLM OS with Advanced Tool Use, it showcases multi-layer architecture, safety protocols, and AI-driven control systems.
+RoboOS demonstrates how **LLM OS v3.4.0** can serve as the "brain" of a robotic arm, translating natural language commands into precise, coordinated actions. Built on the latest LLM OS with Sentience Layer and Advanced Tool Use, it showcases multi-layer architecture, safety protocols, and AI-driven control systems.
 
-## What's New in v3.3.0
+## What's New in v3.4.0
+
+- **Sentience Layer**: Persistent internal state with valence variables (safety, curiosity, energy, self_confidence)
+- **Adaptive Behavior**: Robot behavior adapts based on latent modes (PRECISION, STANDARD, CAUTIOUS, etc.)
+- **Safety-First Valence**: High safety setpoint (0.8) ensures maximum caution in robot operations
+- **Real-time Sentience Monitoring**: `/sentience` endpoint and WebSocket updates include behavioral state
+
+### Previous Features (v3.3.0)
 
 - **PTC for Repetitive Tasks**: Robot pick-and-place operations replay via Programmatic Tool Calling (99%+ savings)
 - **Tool Search**: Operator agent discovers tools on-demand for novel commands
@@ -22,6 +29,16 @@ Imagine controlling a robot with commands like "Pick up the object at (1, 1, 0.5
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  HUMAN: "Pick up the object and place it on the shelf"         │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   SENTIENCE LAYER (v3.4.0)                      │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │  Valence: safety=0.8  curiosity=0.1  energy=0.6       │    │
+│  │  Latent Mode: PRECISION (focused, safe movements)      │    │
+│  │  Robotics Profile: HIGH SAFETY | PRECISION MODE        │    │
+│  └────────────────────────────────────────────────────────┘    │
 └────────────────────┬────────────────────────────────────────────┘
                      │
                      ↓
@@ -97,6 +114,12 @@ Imagine controlling a robot with commands like "Pick up the object at (1, 1, 0.5
 ## Architecture
 
 ### Layers
+
+**0. Sentience Layer (v3.4.0)**
+- **Valence Variables**: safety, curiosity, energy, self_confidence
+- **Homeostatic Dynamics**: Setpoints drive behavior back to equilibrium
+- **Latent Modes**: PRECISION, STANDARD, CAUTIOUS, RECOVERY, ADAPTIVE
+- **Robotics Profile**: High safety (0.8), low curiosity (0.1) for precise operations
 
 **1. Cognitive Layer (LLM OS)**
 - **Operator Agent**: Translates natural language → tool calls
@@ -396,7 +419,40 @@ Get safety status and violation history.
   "violations": {
     "total_violations": 3,
     "violations": [...]
+  },
+  "sentience_safety": {
+    "safety_valence": 0.8,
+    "level": "critical"
   }
+}
+```
+
+#### `GET /sentience` (v3.4.0)
+Get current Sentience Layer state and behavioral profile.
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "valence": {
+    "safety": 0.8,
+    "curiosity": 0.1,
+    "energy": 0.6,
+    "self_confidence": 0.5
+  },
+  "latent_mode": "auto_contained",
+  "mode_description": "PRECISION mode - Focused on exact, controlled movements",
+  "policy": {
+    "exploration_rate": 0.05,
+    "verbosity": "normal",
+    "self_improvement_enabled": false
+  },
+  "robotics_profile": {
+    "safety_priority": "HIGH",
+    "precision_mode": true,
+    "operational_readiness": true
+  },
+  "timestamp": "2025-11-27T10:30:00"
 }
 ```
 
@@ -429,6 +485,82 @@ Real-time state updates (1Hz).
 ### Speed Limits
 - **Max movement per command**: 0.5 meters
 - **Max rotation per command**: 45 degrees per second
+
+---
+
+## Sentience Layer (v3.4.0)
+
+RoboOS uses the LLM OS Sentience Layer to provide adaptive, context-aware robot behavior.
+
+### Valence Variables
+
+The system maintains four internal state variables optimized for robotics:
+
+| Variable | Setpoint | Purpose |
+|----------|----------|---------|
+| **Safety** | 0.8 (HIGH) | Maximum caution for physical operations |
+| **Curiosity** | 0.1 (LOW) | Focus on precision, not exploration |
+| **Energy** | 0.6 (MODERATE) | Sustained operational capacity |
+| **Self-Confidence** | 0.5 (BALANCED) | Reliable but not overconfident |
+
+### Latent Modes for Robotics
+
+| Mode | Description | When Active |
+|------|-------------|-------------|
+| **PRECISION** | Focused, exact movements | Low curiosity (normal for robotics) |
+| **STANDARD** | Normal safe operation | Balanced valence |
+| **CAUTIOUS** | Extra validation, minimal movements | Low safety valence |
+| **RECOVERY** | Conservative operations | Low energy |
+| **ADAPTIVE** | Exploring alternatives | High curiosity (unusual) |
+
+### How Sentience Affects Robot Behavior
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Command: "Move to position (1.5, 0.5, 1.0)"                    │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  SENTIENCE LAYER checks internal state:                         │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │  safety=0.8 → HIGH SAFETY PRIORITY                     │    │
+│  │  curiosity=0.1 → PRECISION MODE (no exploration)       │    │
+│  │  energy=0.6 → OPERATIONAL READY                        │    │
+│  └────────────────────────────────────────────────────────┘    │
+│  Latent Mode: PRECISION → Agent uses exact coordinates         │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  COGNITIVE LAYER (Operator Agent):                              │
+│  Receives sentience context → Executes with precision focus     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why Robotics Needs Sentience
+
+1. **Consistent Safety**: High safety setpoint ensures the robot always prioritizes safe operations
+2. **Precision Focus**: Low curiosity prevents unnecessary exploration during critical tasks
+3. **Operational Awareness**: Energy tracking helps manage sustained operation cycles
+4. **Adaptive Recovery**: When issues occur, the system can enter recovery mode automatically
+
+### Configuration
+
+The sentience profile is configured in `server.py`:
+
+```python
+config = LLMOSConfig(
+    sentience=SentienceConfig(
+        enable_sentience=True,
+        safety_setpoint=0.8,      # Very high for robot control
+        curiosity_setpoint=0.1,   # Low - focus on precision
+        energy_setpoint=0.6,      # Moderate for sustained ops
+        self_confidence_setpoint=0.5,
+        boredom_threshold=-0.4    # Higher - routine is good
+    )
+)
+```
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Qiskit Studio Backend - LLM OS Edition (v3.3.0)
+Qiskit Studio Backend - LLM OS Edition (v3.4.0)
 
 This FastAPI server acts as a bridge between the Qiskit Studio frontend
 and the LLM OS backend, replacing the original Maestro-based microservices
@@ -9,8 +9,10 @@ and the LLM OS backend, replacing the original Maestro-based microservices
 Key features:
 - Drop-in replacement for qiskit-studio API endpoints
 - Advanced Tool Use integration (PTC, Tool Search, Tool Examples)
+- Sentience Layer (valence, homeostatic dynamics, cognitive kernel)
 - Five execution modes: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
 - 90%+ token savings via Programmatic Tool Calling (PTC)
+- Adaptive behavior based on internal state
 - Built-in security hooks
 - Unified memory management
 
@@ -18,7 +20,8 @@ API Endpoints (matching original qiskit-studio):
 - POST /chat          - Chat agent (port 8000 in original)
 - POST /chat/stream   - Streaming chat (SSE)
 - POST /run           - Code execution (port 8002 in original)
-- GET  /stats         - Enhanced stats with Execution Layer metrics
+- GET  /stats         - Enhanced stats with Execution Layer and Sentience metrics
+- GET  /sentience     - NEW: View current internal state (v3.4.0)
 """
 
 import asyncio
@@ -63,8 +66,8 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="Qiskit Studio Backend - LLM OS Edition",
-    description="Drop-in replacement for qiskit-studio backend using LLM OS v3.3.0 with Advanced Tool Use",
-    version="3.3.0"
+    description="Drop-in replacement for qiskit-studio backend using LLM OS v3.4.0 with Advanced Tool Use and Sentience Layer",
+    version="3.4.0"
 )
 
 # Configure CORS for Next.js frontend
@@ -79,6 +82,10 @@ app.add_middleware(
 # Global LLM OS instance (initialized on startup)
 os_instance: Optional[LLMOS] = None
 session_memory: Dict[str, List[Dict[str, str]]] = {}  # Session-based chat history
+
+# Sentience components (initialized on startup)
+sentience_manager = None
+cognitive_kernel = None
 
 
 def analyze_intent(user_input: str, conversation_history: List[Dict[str, str]] = None) -> Dict[str, Any]:
@@ -139,15 +146,16 @@ def analyze_intent(user_input: str, conversation_history: List[Dict[str, str]] =
 
 @app.on_event("startup")
 async def startup():
-    """Initialize LLM OS on server startup with Advanced Tool Use"""
-    global os_instance
+    """Initialize LLM OS on server startup with Advanced Tool Use and Sentience Layer"""
+    global os_instance, sentience_manager, cognitive_kernel
 
     logger.info("="*60)
-    logger.info("Starting Qiskit Studio Backend (LLM OS v3.3.0)")
+    logger.info("Starting Qiskit Studio Backend (LLM OS v3.4.0)")
     logger.info("Advanced Tool Use: PTC, Tool Search, Tool Examples")
+    logger.info("Sentience Layer: Valence, Homeostatic Dynamics, Cognitive Kernel")
     logger.info("="*60)
 
-    # Get LLMOSConfig with Execution Layer settings
+    # Get LLMOSConfig with Execution Layer and Sentience settings
     llmos_config = Config.get_llmos_config()
 
     # Log Execution Layer configuration
@@ -158,8 +166,39 @@ async def startup():
     logger.info(f"  - Use Embeddings: {llmos_config.execution.tool_search_use_embeddings}")
     logger.info(f"  - Auto-Crystallization: {llmos_config.dispatcher.auto_crystallization}")
 
+    # Log Sentience Layer configuration
+    logger.info(f"Sentience Layer Configuration:")
+    logger.info(f"  - Enabled: {llmos_config.sentience.enable_sentience}")
+    logger.info(f"  - Inject Internal State: {llmos_config.sentience.inject_internal_state}")
+    logger.info(f"  - Auto-Improvement: {llmos_config.sentience.enable_auto_improvement}")
+    logger.info(f"  - Safety Setpoint: {llmos_config.sentience.safety_setpoint}")
+    logger.info(f"  - Curiosity Setpoint: {llmos_config.sentience.curiosity_setpoint}")
+
     # Initialize LLM OS with full configuration
     os_instance = LLMOS(config=llmos_config)
+
+    # Initialize Sentience Layer if enabled
+    if llmos_config.sentience.enable_sentience:
+        try:
+            from kernel.sentience import SentienceManager
+            from kernel.cognitive_kernel import CognitiveKernel
+
+            state_path = Path(__file__).parent / llmos_config.sentience.state_file
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+
+            sentience_manager = SentienceManager(
+                state_path=state_path,
+                auto_persist=llmos_config.sentience.auto_persist
+            )
+            cognitive_kernel = CognitiveKernel(sentience_manager)
+
+            logger.info(f"Sentience Layer initialized")
+            logger.info(f"  - Current latent mode: {sentience_manager.get_state().latent_mode.value}")
+            logger.info(f"  - Homeostatic cost: {sentience_manager.get_state().valence.homeostatic_cost():.4f}")
+        except ImportError as e:
+            logger.warning(f"Sentience Layer not available: {e}")
+            sentience_manager = None
+            cognitive_kernel = None
 
     # Register our custom Qiskit tools with the dispatcher for Execution Layer support
     logger.info("Registering Qiskit tools with Execution Layer...")
@@ -403,6 +442,29 @@ Current request: {user_message}"""
         ptc_used = mode_used == "FOLLOWER" and cost < 0.01
         tokens_saved = result.get("tokens_saved", 0)
 
+        # Update sentience state based on task outcome
+        if cognitive_kernel:
+            try:
+                success = not result.get("error", False)
+                cognitive_kernel.on_task_complete(
+                    success=success,
+                    cost=cost,
+                    mode=mode_used,
+                    goal=user_message[:100]  # Truncate for tracking
+                )
+
+                # Check if this is a novel task (triggers curiosity)
+                if mode_used == "LEARNER":
+                    cognitive_kernel.on_novel_task(user_message[:100])
+
+                # Log latent mode for debugging
+                state = sentience_manager.get_state()
+                logger.info(f"[Sentience] Latent mode: {state.latent_mode.value}, "
+                           f"Safety: {state.valence.safety:.2f}, "
+                           f"Curiosity: {state.valence.curiosity:.2f}")
+            except Exception as e:
+                logger.warning(f"Sentience tracking error: {e}")
+
         # Log interesting stats
         if ptc_used:
             logger.info("✨ PTC activated - Tool sequence replayed outside context (90%+ savings!)")
@@ -410,6 +472,21 @@ Current request: {user_message}"""
             logger.info("✨ FOLLOWER mode activated - Request served from cache")
         else:
             logger.info(f"💰 Request cost: ${cost:.4f}")
+
+        # Get sentience state for response metadata
+        sentience_metadata = {}
+        if sentience_manager:
+            state = sentience_manager.get_state()
+            sentience_metadata = {
+                "latent_mode": state.latent_mode.value,
+                "valence": {
+                    "safety": round(state.valence.safety, 3),
+                    "curiosity": round(state.valence.curiosity, 3),
+                    "energy": round(state.valence.energy, 3),
+                    "self_confidence": round(state.valence.self_confidence, 3)
+                },
+                "homeostatic_cost": round(state.valence.homeostatic_cost(), 4)
+            }
 
         # Return response in Maestro-compatible format for frontend
         # The frontend expects either:
@@ -421,14 +498,16 @@ Current request: {user_message}"""
             "mode": mode_used,
             "cost": cost,
             "cached": cached,
-            # New v3.3.0 Execution Layer metadata
+            # v3.3.0 Execution Layer metadata
             "ptc_used": ptc_used,
             "tokens_saved": tokens_saved,
             "execution_layer": {
                 "ptc_enabled": Config.LLMOS_ENABLE_PTC,
                 "tool_search_enabled": Config.LLMOS_ENABLE_TOOL_SEARCH,
                 "tool_examples_enabled": Config.LLMOS_ENABLE_TOOL_EXAMPLES
-            }
+            },
+            # v3.4.0 Sentience Layer metadata
+            "sentience": sentience_metadata
         }
 
         return {
@@ -441,7 +520,9 @@ Current request: {user_message}"""
                 "cost": cost,
                 "cached": cached,
                 "ptc_used": ptc_used,
-                "tokens_saved": tokens_saved
+                "tokens_saved": tokens_saved,
+                # v3.4.0 Sentience metadata
+                "sentience": sentience_metadata
             }
         }
 
@@ -615,8 +696,9 @@ async def stats_endpoint():
     """
     Statistics endpoint - shows LLM OS performance metrics.
 
-    This is a bonus endpoint that showcases LLM OS v3.3.0 capabilities
-    including Execution Layer (PTC, Tool Search, Tool Examples) statistics.
+    This endpoint showcases LLM OS v3.4.0 capabilities including:
+    - Execution Layer (PTC, Tool Search, Tool Examples) statistics
+    - Sentience Layer (valence, latent mode, homeostatic cost) statistics
     """
     if not os_instance:
         raise HTTPException(status_code=503, detail="LLM OS not initialized")
@@ -634,8 +716,49 @@ async def stats_endpoint():
         if hasattr(os_instance.dispatcher, 'get_execution_layer_stats'):
             execution_layer_stats = os_instance.dispatcher.get_execution_layer_stats()
 
+    # Get Sentience Layer stats
+    sentience_stats = {"enabled": False}
+    if sentience_manager:
+        state = sentience_manager.get_state()
+        policy = cognitive_kernel.derive_policy() if cognitive_kernel else None
+
+        sentience_stats = {
+            "enabled": True,
+            "latent_mode": state.latent_mode.value,
+            "valence": {
+                "safety": round(state.valence.safety, 3),
+                "curiosity": round(state.valence.curiosity, 3),
+                "energy": round(state.valence.energy, 3),
+                "self_confidence": round(state.valence.self_confidence, 3)
+            },
+            "setpoints": {
+                "safety": round(state.valence.safety_setpoint, 3),
+                "curiosity": round(state.valence.curiosity_setpoint, 3),
+                "energy": round(state.valence.energy_setpoint, 3),
+                "self_confidence": round(state.valence.self_confidence_setpoint, 3)
+            },
+            "homeostatic_cost": round(state.valence.homeostatic_cost(), 4),
+            "last_trigger": state.last_trigger.value if state.last_trigger else None,
+            "last_trigger_reason": state.last_trigger_reason,
+            "policy": {
+                "prefer_cheap_modes": policy.prefer_cheap_modes if policy else False,
+                "prefer_safe_modes": policy.prefer_safe_modes if policy else False,
+                "allow_exploration": policy.allow_exploration if policy else True,
+                "enable_auto_improvement": policy.enable_auto_improvement if policy else False
+            } if policy else {}
+        }
+
+        # Check for self-improvement opportunities
+        if cognitive_kernel:
+            suggestions = cognitive_kernel.detect_improvement_opportunities()
+            if suggestions:
+                sentience_stats["improvement_suggestions"] = [
+                    {"type": s.type.value, "description": s.description, "priority": s.priority}
+                    for s in suggestions[:3]  # Top 3 suggestions
+                ]
+
     return {
-        "version": "3.3.0",
+        "version": "3.4.0",
         "token_economy": {
             "budget_usd": Config.LLMOS_BUDGET_USD,
             "spent_usd": total_spent,
@@ -686,8 +809,100 @@ async def stats_endpoint():
             "mixed": execution_layer_stats.get("mode_mixed", 0),
             "learner": execution_layer_stats.get("mode_learner", 0),
             "orchestrator": execution_layer_stats.get("mode_orchestrator", 0)
-        }
+        },
+        # v3.4.0 Sentience Layer statistics
+        "sentience": sentience_stats
     }
+
+
+@app.get("/sentience")
+async def sentience_endpoint():
+    """
+    Sentience Layer endpoint - view and understand internal state.
+
+    NEW in v3.4.0: This endpoint provides detailed access to the
+    Sentience Layer state including valence, latent mode, and
+    behavioral policy.
+    """
+    if not sentience_manager:
+        return {
+            "enabled": False,
+            "message": "Sentience Layer is not enabled"
+        }
+
+    state = sentience_manager.get_state()
+    policy = cognitive_kernel.derive_policy() if cognitive_kernel else None
+
+    response = {
+        "enabled": True,
+        "latent_mode": {
+            "current": state.latent_mode.value,
+            "description": _get_latent_mode_description(state.latent_mode.value)
+        },
+        "valence": {
+            "safety": {
+                "value": round(state.valence.safety, 3),
+                "setpoint": round(state.valence.safety_setpoint, 3),
+                "deviation": round(state.valence.safety - state.valence.safety_setpoint, 3)
+            },
+            "curiosity": {
+                "value": round(state.valence.curiosity, 3),
+                "setpoint": round(state.valence.curiosity_setpoint, 3),
+                "deviation": round(state.valence.curiosity - state.valence.curiosity_setpoint, 3)
+            },
+            "energy": {
+                "value": round(state.valence.energy, 3),
+                "setpoint": round(state.valence.energy_setpoint, 3),
+                "deviation": round(state.valence.energy - state.valence.energy_setpoint, 3)
+            },
+            "self_confidence": {
+                "value": round(state.valence.self_confidence, 3),
+                "setpoint": round(state.valence.self_confidence_setpoint, 3),
+                "deviation": round(state.valence.self_confidence - state.valence.self_confidence_setpoint, 3)
+            }
+        },
+        "homeostatic_cost": round(state.valence.homeostatic_cost(), 4),
+        "last_trigger": {
+            "type": state.last_trigger.value if state.last_trigger else None,
+            "reason": state.last_trigger_reason
+        },
+        "behavioral_guidance": state.to_behavioral_guidance(),
+        "policy": {
+            "prefer_cheap_modes": policy.prefer_cheap_modes if policy else False,
+            "prefer_safe_modes": policy.prefer_safe_modes if policy else False,
+            "allow_exploration": policy.allow_exploration if policy else True,
+            "exploration_budget_multiplier": policy.exploration_budget_multiplier if policy else 1.0,
+            "enable_auto_improvement": policy.enable_auto_improvement if policy else False
+        } if policy else {}
+    }
+
+    # Add self-improvement suggestions if available
+    if cognitive_kernel:
+        suggestions = cognitive_kernel.detect_improvement_opportunities()
+        if suggestions:
+            response["improvement_suggestions"] = [
+                {
+                    "type": s.type.value,
+                    "description": s.description,
+                    "priority": s.priority,
+                    "trigger_reason": s.trigger_reason
+                }
+                for s in suggestions
+            ]
+
+    return response
+
+
+def _get_latent_mode_description(mode: str) -> str:
+    """Get human-readable description for latent mode."""
+    descriptions = {
+        "auto_creative": "High curiosity and confidence - exploring new approaches and solutions",
+        "auto_contained": "Low curiosity - focused on efficient task completion",
+        "balanced": "Normal operating state - balanced between exploration and efficiency",
+        "recovery": "Low energy or safety - preferring cheap, safe modes",
+        "cautious": "Low safety - requiring extra verification and confirmation"
+    }
+    return descriptions.get(mode, "Unknown mode")
 
 
 @app.post("/clear_session")

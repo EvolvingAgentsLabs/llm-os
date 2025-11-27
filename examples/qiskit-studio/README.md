@@ -1,10 +1,20 @@
-# Qiskit Studio - LLM OS v3.3.0 Edition
+# Qiskit Studio - LLM OS v3.4.0 Edition
 
-> **A flagship example of LLM OS using Advanced Tool Use (PTC, Tool Search, Tool Examples).**
+> **A flagship example of LLM OS using Advanced Tool Use and Sentience Layer.**
 
-This project reimplements the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using **LLM OS v3.3.0**, demonstrating how a unified operating system for LLMs can replace multiple specialized microservices while providing superior memory management, cost efficiency, and security.
+This project reimplements the [Qiskit Studio](https://github.com/AI4quantum/qiskit-studio) backend using **LLM OS v3.4.0**, demonstrating how a unified operating system for LLMs can replace multiple specialized microservices while providing superior memory management, cost efficiency, security, and adaptive behavior.
 
-## What's New in v3.3.0
+## What's New in v3.4.0
+
+- **Sentience Layer**: Persistent internal state that influences behavior
+  - **Valence Variables**: Safety, curiosity, energy, self_confidence
+  - **Homeostatic Dynamics**: Set-points with deviation costs
+  - **Latent Modes**: Auto-creative vs auto-contained behavior emergence
+  - **Cognitive Kernel**: Policy derivation and self-improvement detection
+- **Adaptive Behavior**: System adapts based on task outcomes and patterns
+- **New `/sentience` Endpoint**: View internal state and behavioral guidance
+
+## What's in v3.3.0
 
 - **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window for 90%+ token savings
 - **Tool Search**: On-demand tool discovery instead of loading all tools upfront
@@ -29,6 +39,7 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 4. **Simplified Architecture**: Single LLM OS instance replaces 3+ microservices
 5. **Same Frontend**: Drop-in API compatibility with existing Qiskit Studio UI
 6. **Auto-Crystallization**: Repeated patterns become zero-cost Python code
+7. **Adaptive Behavior** (v3.4.0): System learns from outcomes and adapts its approach over time
 
 ---
 
@@ -44,10 +55,23 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
                │                                         │
                ▼                                         ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                FastAPI Bridge Server (server.py v3.3.0)              │
+│                FastAPI Bridge Server (server.py v3.4.0)              │
 │  • Intent analysis (coding vs. question)                             │
 │  • Session management with Execution Layer metadata                  │
+│  • Sentience state tracking and response metadata                    │
 │  • API compatibility layer                                           │
+└──────────────┬───────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                   SENTIENCE LAYER (Awareness) - v3.4.0               │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  ValenceVector + CognitiveKernel + LatentModes                 │ │
+│  │  • Tracks safety, curiosity, energy, self_confidence           │ │
+│  │  • Derives behavioral policy from internal state               │ │
+│  │  • Influences mode selection (prefer cheap/safe modes)         │ │
+│  │  • Detects self-improvement opportunities                      │ │
+│  └────────────────────────────────────────────────────────────────┘ │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
                ▼
@@ -58,6 +82,7 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 │  │  • Analyzes execution history                                  │ │
 │  │  • Decides: CRYSTALLIZED / FOLLOWER / MIXED / LEARNER / ORCH  │ │
 │  │  • Semantic matching for similar patterns                      │ │
+│  │  • Mode decisions modulated by Sentience Layer                 │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 └──────────────┬───────────────────────────────────────────────────────┘
                │
@@ -95,6 +120,7 @@ The original Qiskit Studio uses **Maestro** to orchestrate three distinct micros
 │  │   L4 Semantic Memory + Traces with tool_calls for PTC          │ │
 │  │  • Quantum patterns cached with full tool call data            │ │
 │  │  • Enables zero-context replay via PTC                         │ │
+│  │  • Sentience state persisted across sessions                   │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -282,6 +308,54 @@ The bridge server automatically routes requests:
 | "How do I use Sampler?" | Quantum Tutor | ORCHESTRATOR | API question |
 | "Implement Grover's algorithm" | Quantum Architect | AUTO | Algorithm implementation |
 
+### 5. Sentience Layer (NEW in v3.4.0)
+
+The system now maintains persistent internal state that influences behavior:
+
+**View current sentience state:**
+```bash
+curl http://localhost:8000/sentience | jq
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "latent_mode": {
+    "current": "balanced",
+    "description": "Normal operating state - balanced between exploration and efficiency"
+  },
+  "valence": {
+    "safety": {"value": 0.6, "setpoint": 0.6, "deviation": 0.0},
+    "curiosity": {"value": 0.15, "setpoint": 0.1, "deviation": 0.05},
+    "energy": {"value": 0.72, "setpoint": 0.7, "deviation": 0.02},
+    "self_confidence": {"value": 0.45, "setpoint": 0.4, "deviation": 0.05}
+  },
+  "homeostatic_cost": 0.0034,
+  "behavioral_guidance": "Operating normally. Balance efficiency with exploration.",
+  "policy": {
+    "prefer_cheap_modes": false,
+    "prefer_safe_modes": false,
+    "allow_exploration": true,
+    "exploration_budget_multiplier": 1.0,
+    "enable_auto_improvement": true
+  }
+}
+```
+
+**Latent Modes** emerge from valence state:
+- **AUTO_CREATIVE**: High curiosity + confidence -> explores new quantum algorithms
+- **AUTO_CONTAINED**: Low curiosity -> focuses on efficient task completion
+- **BALANCED**: Normal operation -> balances exploration and efficiency
+- **RECOVERY**: Low energy/safety -> prefers FOLLOWER mode (cheap, cached)
+- **CAUTIOUS**: Low safety -> extra verification for code execution
+
+**How it affects Qiskit Studio:**
+- After repeated similar tasks, curiosity drops -> system prefers FOLLOWER mode
+- After safety violations (blocked code), safety drops -> CAUTIOUS mode triggers
+- Novel quantum algorithms boost curiosity -> AUTO_CREATIVE allows more exploration
+- High cost operations reduce energy -> RECOVERY mode prefers cached patterns
+
 ---
 
 ## 📡 API Reference
@@ -351,14 +425,53 @@ data: [DONE]
 }
 ```
 
-### GET `/stats`
+### GET `/sentience` (NEW in v3.4.0)
 
-**Purpose**: View LLM OS v3.3.0 performance metrics including Execution Layer stats
+**Purpose**: View detailed Sentience Layer state including valence, latent mode, and behavioral policy
 
 **Response**:
 ```json
 {
-  "version": "3.3.0",
+  "enabled": true,
+  "latent_mode": {
+    "current": "balanced",
+    "description": "Normal operating state - balanced between exploration and efficiency"
+  },
+  "valence": {
+    "safety": {"value": 0.6, "setpoint": 0.6, "deviation": 0.0},
+    "curiosity": {"value": 0.15, "setpoint": 0.1, "deviation": 0.05},
+    "energy": {"value": 0.72, "setpoint": 0.7, "deviation": 0.02},
+    "self_confidence": {"value": 0.45, "setpoint": 0.4, "deviation": 0.05}
+  },
+  "homeostatic_cost": 0.0034,
+  "last_trigger": {"type": "task_success", "reason": "Completed circuit generation"},
+  "behavioral_guidance": "Operating normally. Balance efficiency with exploration.",
+  "policy": {
+    "prefer_cheap_modes": false,
+    "prefer_safe_modes": false,
+    "allow_exploration": true,
+    "exploration_budget_multiplier": 1.0,
+    "enable_auto_improvement": true
+  },
+  "improvement_suggestions": [
+    {
+      "type": "create_crystallized_pattern",
+      "description": "Pattern 'Bell state creation' used 5+ times with 100% success",
+      "priority": 0.8,
+      "trigger_reason": "High usage pattern detected"
+    }
+  ]
+}
+```
+
+### GET `/stats`
+
+**Purpose**: View LLM OS v3.4.0 performance metrics including Execution Layer and Sentience stats
+
+**Response**:
+```json
+{
+  "version": "3.4.0",
   "token_economy": {
     "budget_usd": 50.0,
     "spent_usd": 2.34,
@@ -404,6 +517,21 @@ data: [DONE]
     "mixed": 2,
     "learner": 5,
     "orchestrator": 1
+  },
+  "sentience": {
+    "enabled": true,
+    "latent_mode": "balanced",
+    "valence": {
+      "safety": 0.6,
+      "curiosity": 0.15,
+      "energy": 0.72,
+      "self_confidence": 0.45
+    },
+    "homeostatic_cost": 0.0034,
+    "policy": {
+      "prefer_cheap_modes": false,
+      "allow_exploration": true
+    }
   }
 }
 ```
@@ -506,6 +634,7 @@ This example teaches:
 5. **Cost Optimization**: Leveraging Learner/Follower patterns
 6. **Security**: Implementing safe code execution
 7. **Memory Management**: Cross-project learning and caching
+8. **Sentience Layer** (v3.4.0): Implementing adaptive behavior with internal state
 
 ---
 
@@ -539,13 +668,18 @@ LLMOS_ENABLE_TOOL_SEARCH=true      # On-demand tool discovery
 LLMOS_ENABLE_TOOL_EXAMPLES=true    # Auto-generated examples
 LLMOS_USE_EMBEDDINGS=false         # Set to true for production (requires sentence-transformers)
 
+# LLM OS Sentience Layer (v3.4.0)
+LLMOS_ENABLE_SENTIENCE=true        # Enable adaptive internal state
+LLMOS_INJECT_INTERNAL_STATE=true   # Agents see their internal state
+LLMOS_ENABLE_AUTO_IMPROVEMENT=true # Auto-detect improvement opportunities
+
 # Logging
 LOG_LEVEL=INFO
 ```
 
 ### Adjusting Configuration
 
-The server now uses `LLMOSConfig` with full Execution Layer support. Edit `config.py`:
+The server now uses `LLMOSConfig` with full Execution Layer and Sentience Layer support. Edit `config.py`:
 
 ```python
 # In Config.get_llmos_config():
@@ -555,19 +689,28 @@ execution=ExecutionLayerConfig(
     enable_tool_examples=True,
     # For production, enable embeddings for better tool search:
     tool_search_use_embeddings=True,
+),
+sentience=SentienceConfig(
+    enable_sentience=True,
+    # Valence set-points tuned for quantum computing
+    safety_setpoint=0.6,      # Higher for code execution safety
+    curiosity_setpoint=0.1,   # Moderate exploration
+    # Enable adaptive features
+    inject_internal_state=True,
+    enable_auto_improvement=True,
 )
 ```
 
 Or use environment variables:
 ```bash
-LLMOS_BUDGET_USD=100.0 LLMOS_USE_EMBEDDINGS=true python server.py
+LLMOS_BUDGET_USD=100.0 LLMOS_USE_EMBEDDINGS=true LLMOS_ENABLE_SENTIENCE=true python server.py
 ```
 
 ---
 
 ## Performance Comparison
 
-| Metric | Original (Maestro) | LLM OS v3.3.0 | Improvement |
+| Metric | Original (Maestro) | LLM OS v3.4.0 | Improvement |
 |--------|-------------------|---------------|-------------|
 | **Microservices** | 3 (chat, codegen, coderun) | 1 (unified) | **67% reduction** |
 | **Repeated Pattern Cost** | Full LLM call each time | ~$0.00 (PTC) | **90%+ savings** |
@@ -576,6 +719,7 @@ LLMOS_BUDGET_USD=100.0 LLMOS_USE_EMBEDDINGS=true python server.py
 | **Security** | Per-service validation | Unified hooks | **Consistent enforcement** |
 | **Deployment Complexity** | Docker Compose + K8s | Single process | **90% simpler** |
 | **Pattern Evolution** | Manual optimization | Auto-crystallization | **Self-optimizing** |
+| **Adaptive Behavior** | None | Sentience Layer | **Self-aware** |
 
 ---
 

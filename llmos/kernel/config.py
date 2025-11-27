@@ -82,6 +82,62 @@ class DispatcherConfig:
 
 
 @dataclass
+class SentienceConfig:
+    """
+    Configuration for Sentience Layer (internal state, valence, cognitive kernel)
+
+    The Sentience Layer provides persistent internal state that influences
+    mode selection and behavioral policy. It implements:
+    - Valence variables (safety, curiosity, energy, self_confidence)
+    - Homeostatic dynamics (set-points and deviation costs)
+    - Latent mode (auto-creative vs auto-contained)
+    - Self-improvement detection
+
+    Safety Note:
+    This is an architectural implementation of sentience-like behavior,
+    not a claim of actual consciousness.
+    """
+    # Enable/disable sentience layer
+    enable_sentience: bool = True
+
+    # Valence set-points (homeostatic targets, range: -1.0 to 1.0)
+    safety_setpoint: float = 0.5
+    curiosity_setpoint: float = 0.0
+    energy_setpoint: float = 0.7
+    self_confidence_setpoint: float = 0.3
+
+    # Sensitivity factors (how strongly triggers affect valence)
+    safety_sensitivity: float = 0.15
+    curiosity_sensitivity: float = 0.12
+    energy_sensitivity: float = 0.08
+    self_confidence_sensitivity: float = 0.10
+
+    # Decay rates (how quickly values return to set-points)
+    decay_rate: float = 0.02
+
+    # Context injection
+    inject_internal_state: bool = True
+    inject_behavioral_guidance: bool = True
+
+    # Self-improvement
+    enable_auto_improvement: bool = True
+    boredom_threshold: float = -0.4
+    improvement_cooldown_secs: float = 300.0
+
+    # Persistence
+    auto_persist: bool = True
+    state_file: str = "state/sentience.json"
+
+    def __post_init__(self):
+        """Validate configuration"""
+        for val_name in ["safety_setpoint", "curiosity_setpoint",
+                         "energy_setpoint", "self_confidence_setpoint"]:
+            val = getattr(self, val_name)
+            if not -1.0 <= val <= 1.0:
+                raise ValueError(f"{val_name} must be between -1.0 and 1.0")
+
+
+@dataclass
 class ExecutionLayerConfig:
     """
     Configuration for Anthropic Advanced Tool Use (Execution Layer)
@@ -157,6 +213,7 @@ class LLMOSConfig:
     sdk: SDKConfig = field(default_factory=SDKConfig)
     dispatcher: DispatcherConfig = field(default_factory=DispatcherConfig)
     execution: ExecutionLayerConfig = field(default_factory=ExecutionLayerConfig)
+    sentience: SentienceConfig = field(default_factory=SentienceConfig)
     project_name: Optional[str] = None
 
     def __post_init__(self):
@@ -221,6 +278,12 @@ class LLMOSConfig:
                 enable_tool_search=True,
                 tool_search_use_embeddings=False,  # Fast, no dependencies
                 enable_tool_examples=True
+            ),
+            sentience=SentienceConfig(
+                enable_sentience=True,
+                inject_internal_state=True,
+                inject_behavioral_guidance=True,
+                enable_auto_improvement=False  # Manual control in dev
             )
         )
 
@@ -263,6 +326,13 @@ class LLMOSConfig:
                 tool_search_use_embeddings=True,  # Best quality search
                 enable_tool_examples=True,
                 defer_tools_by_default=True  # Save context by default
+            ),
+            sentience=SentienceConfig(
+                enable_sentience=True,
+                inject_internal_state=True,
+                inject_behavioral_guidance=True,
+                enable_auto_improvement=True,  # Full auto-improvement in production
+                auto_persist=True
             )
         )
 
@@ -302,6 +372,10 @@ class LLMOSConfig:
                 enable_ptc=False,
                 enable_tool_search=False,
                 enable_tool_examples=False
+            ),
+            sentience=SentienceConfig(
+                enable_sentience=False,  # Disabled for deterministic tests
+                auto_persist=False
             )
         )
 
@@ -315,6 +389,7 @@ class LLMOSConfig:
         sdk_data = data.get('sdk', {})
         dispatcher_data = data.get('dispatcher', {})
         execution_data = data.get('execution', {})
+        sentience_data = data.get('sentience', {})
 
         return cls(
             workspace=workspace,
@@ -323,6 +398,7 @@ class LLMOSConfig:
             sdk=SDKConfig(**sdk_data),
             dispatcher=DispatcherConfig(**dispatcher_data),
             execution=ExecutionLayerConfig(**execution_data),
+            sentience=SentienceConfig(**sentience_data),
             project_name=data.get('project_name')
         )
 
@@ -373,6 +449,25 @@ class LLMOSConfig:
                 'tool_examples_min_success_rate': self.execution.tool_examples_min_success_rate,
                 'tool_examples_max_per_tool': self.execution.tool_examples_max_per_tool,
                 'tool_examples_cache_ttl_secs': self.execution.tool_examples_cache_ttl_secs
+            },
+            'sentience': {
+                'enable_sentience': self.sentience.enable_sentience,
+                'safety_setpoint': self.sentience.safety_setpoint,
+                'curiosity_setpoint': self.sentience.curiosity_setpoint,
+                'energy_setpoint': self.sentience.energy_setpoint,
+                'self_confidence_setpoint': self.sentience.self_confidence_setpoint,
+                'safety_sensitivity': self.sentience.safety_sensitivity,
+                'curiosity_sensitivity': self.sentience.curiosity_sensitivity,
+                'energy_sensitivity': self.sentience.energy_sensitivity,
+                'self_confidence_sensitivity': self.sentience.self_confidence_sensitivity,
+                'decay_rate': self.sentience.decay_rate,
+                'inject_internal_state': self.sentience.inject_internal_state,
+                'inject_behavioral_guidance': self.sentience.inject_behavioral_guidance,
+                'enable_auto_improvement': self.sentience.enable_auto_improvement,
+                'boredom_threshold': self.sentience.boredom_threshold,
+                'improvement_cooldown_secs': self.sentience.improvement_cooldown_secs,
+                'auto_persist': self.sentience.auto_persist,
+                'state_file': self.sentience.state_file
             },
             'project_name': self.project_name
         }
@@ -427,6 +522,16 @@ class ConfigBuilder:
     def with_auto_crystallization(self, enabled: bool) -> 'ConfigBuilder':
         """Enable/disable automatic crystallization"""
         self._config.dispatcher.auto_crystallization = enabled
+        return self
+
+    def with_sentience(self, enabled: bool) -> 'ConfigBuilder':
+        """Enable/disable sentience layer"""
+        self._config.sentience.enable_sentience = enabled
+        return self
+
+    def with_auto_improvement(self, enabled: bool) -> 'ConfigBuilder':
+        """Enable/disable auto-improvement based on internal state"""
+        self._config.sentience.enable_auto_improvement = enabled
         return self
 
     def build(self) -> LLMOSConfig:

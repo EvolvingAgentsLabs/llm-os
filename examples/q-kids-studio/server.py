@@ -1,8 +1,13 @@
 """
-Q-Kids Studio - FastAPI Backend Server
+Q-Kids Studio - FastAPI Backend Server (v3.4.0)
 
 Educational quantum computing platform for children ages 8-12.
 Provides safe, fun, gamified quantum learning with adaptive difficulty.
+
+LLM OS v3.4.0 Features:
+- Sentience Layer: Adaptive behavior based on internal state
+- Execution Layer: PTC, Tool Search, Tool Examples
+- Five Execution Modes: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
 """
 
 import sys
@@ -286,8 +291,8 @@ class SessionManager:
 
 app = FastAPI(
     title="Q-Kids Studio API",
-    description="Educational quantum computing for kids ages 8-12",
-    version="1.0.0"
+    description="Educational quantum computing for kids ages 8-12, powered by LLM OS v3.4.0 with Sentience Layer",
+    version="3.4.0"
 )
 
 # CORS middleware for frontend
@@ -307,15 +312,67 @@ llmos = None
 professor_q = None
 game_master = None
 
+# Sentience components (v3.4.0)
+sentience_manager = None
+cognitive_kernel = None
+
 
 def init_llmos():
-    """Initialize LLM OS with Q-Kids Studio agents."""
-    global llmos, professor_q, game_master
+    """Initialize LLM OS with Q-Kids Studio agents and Sentience Layer."""
+    global llmos, professor_q, game_master, sentience_manager, cognitive_kernel
 
-    print("🦉 Initializing Q-Kids Studio Backend...")
+    print("🦉 Initializing Q-Kids Studio Backend (LLM OS v3.4.0)...")
+    print("=" * 60)
 
-    # Initialize LLM OS
-    llmos = LLMOS()
+    # Initialize LLM OS with configuration
+    from kernel.config import LLMOSConfig, SentienceConfig
+
+    # Configure for kids - higher safety, moderate curiosity for exploration
+    config = LLMOSConfig(
+        workspace=Path(__file__).parent / "workspace",
+        sentience=SentienceConfig(
+            enable_sentience=True,
+            # Kid-focused valence setpoints
+            safety_setpoint=0.7,  # Higher safety for children
+            curiosity_setpoint=0.3,  # Encourage exploration/learning
+            energy_setpoint=0.8,  # Keep energy high for engagement
+            self_confidence_setpoint=0.5,  # Build confidence gradually
+            # Context injection for adaptive responses
+            inject_internal_state=True,
+            inject_behavioral_guidance=True,
+            # Self-improvement for detecting repetitive patterns
+            enable_auto_improvement=True,
+            boredom_threshold=-0.2,  # Lower threshold - kids benefit from variety
+            # Persistence
+            auto_persist=True,
+            state_file="state/qkids_sentience.json"
+        )
+    )
+
+    llmos = LLMOS(config=config)
+
+    # Initialize Sentience Layer
+    try:
+        from kernel.sentience import SentienceManager
+        from kernel.cognitive_kernel import CognitiveKernel
+
+        state_path = Path(__file__).parent / "state" / "qkids_sentience.json"
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+
+        sentience_manager = SentienceManager(
+            state_path=state_path,
+            auto_persist=True
+        )
+        cognitive_kernel = CognitiveKernel(sentience_manager)
+
+        print(f"✨ Sentience Layer initialized")
+        print(f"   - Latent mode: {sentience_manager.get_state().latent_mode.value}")
+        print(f"   - Safety: {sentience_manager.get_state().valence.safety:.2f}")
+        print(f"   - Curiosity: {sentience_manager.get_state().valence.curiosity:.2f}")
+    except ImportError as e:
+        print(f"⚠️ Sentience Layer not available: {e}")
+        sentience_manager = None
+        cognitive_kernel = None
 
     # Load agents from Markdown files (Hybrid Architecture approach)
     print("📚 Loading agents from Markdown files...")
@@ -363,6 +420,7 @@ def init_llmos():
 
     print("✅ Q-Kids Studio Backend ready!")
     print("🎨 Kids can now build quantum circuits safely!")
+    print("=" * 60)
 
 
 @app.on_event("startup")
@@ -378,11 +436,19 @@ async def startup_event():
 @app.get("/")
 async def root():
     """Health check endpoint."""
+    sentience_mode = None
+    if sentience_manager:
+        sentience_mode = sentience_manager.get_state().latent_mode.value
+
     return {
         "service": "Q-Kids Studio Backend",
         "status": "ready",
         "message": "🦉 Professor Q is ready to teach!",
-        "version": "1.0.0"
+        "version": "3.4.0",
+        "llm_os_features": {
+            "sentience_layer": sentience_manager is not None,
+            "current_mode": sentience_mode
+        }
     }
 
 
@@ -468,6 +534,24 @@ async def play_circuit(request: PlayRequest):
             "mission_id": request.mission_id,
             "success": not result_data.get("error", False)
         })
+
+        # Update sentience state based on kid's task outcome (v3.4.0)
+        if cognitive_kernel:
+            try:
+                success = not result_data.get("error", False)
+                cognitive_kernel.on_task_complete(
+                    success=success,
+                    cost=0.001,  # Minimal cost tracking for kids
+                    mode="LEARNER",
+                    goal=f"Circuit from {request.player_name}"
+                )
+
+                # Novel circuits boost curiosity
+                if len(request.blocks) > 2:
+                    cognitive_kernel.on_novel_task(f"Complex circuit: {len(request.blocks)} blocks")
+
+            except Exception as e:
+                print(f"⚠️ Sentience tracking: {e}")
 
         # Get Professor Q's explanation
         explanation_prompt = f"""
@@ -708,17 +792,108 @@ async def get_leaderboard(limit: int = 10):
 
 @app.get("/stats")
 async def get_stats():
-    """Get overall platform statistics."""
+    """Get overall platform statistics including Sentience Layer state."""
     total_players = len(session_manager.players)
     total_attempts = sum(p.total_attempts for p in session_manager.players.values())
     total_completions = sum(len(p.completed_missions) for p in session_manager.players.values())
 
+    # Get sentience stats (v3.4.0)
+    sentience_stats = {"enabled": False}
+    if sentience_manager:
+        state = sentience_manager.get_state()
+        policy = cognitive_kernel.derive_policy() if cognitive_kernel else None
+
+        sentience_stats = {
+            "enabled": True,
+            "latent_mode": state.latent_mode.value,
+            "valence": {
+                "safety": round(state.valence.safety, 3),
+                "curiosity": round(state.valence.curiosity, 3),
+                "energy": round(state.valence.energy, 3),
+                "self_confidence": round(state.valence.self_confidence, 3)
+            },
+            "homeostatic_cost": round(state.valence.homeostatic_cost(), 4),
+            "policy": {
+                "allow_exploration": policy.allow_exploration if policy else True,
+                "exploration_budget_multiplier": policy.exploration_budget_multiplier if policy else 1.0
+            } if policy else {}
+        }
+
     return {
+        "version": "3.4.0",
         "total_players": total_players,
         "total_circuit_runs": total_attempts,
         "total_missions_completed": total_completions,
         "available_missions": len(MISSIONS),
-        "active_sessions": len(session_manager.session_history)
+        "active_sessions": len(session_manager.session_history),
+        "sentience": sentience_stats
+    }
+
+
+@app.get("/sentience")
+async def get_sentience():
+    """
+    Get detailed Sentience Layer state (v3.4.0).
+
+    Shows how the system's internal state adapts based on interactions.
+    """
+    if not sentience_manager:
+        return {
+            "enabled": False,
+            "message": "Sentience Layer not enabled"
+        }
+
+    state = sentience_manager.get_state()
+    policy = cognitive_kernel.derive_policy() if cognitive_kernel else None
+
+    # Kid-friendly descriptions of latent modes
+    mode_descriptions = {
+        "auto_creative": "Professor Q is in EXPLORATION mode! 🚀 Ready to try new things!",
+        "auto_contained": "Professor Q is in FOCUS mode! 🎯 Let's solve this puzzle!",
+        "balanced": "Professor Q is in NORMAL mode! 🦉 Ready to teach!",
+        "recovery": "Professor Q is taking a breather! 😌 Let's do something simple!",
+        "cautious": "Professor Q is being extra careful! 🛡️ Safety first!"
+    }
+
+    return {
+        "enabled": True,
+        "latent_mode": {
+            "current": state.latent_mode.value,
+            "description": mode_descriptions.get(state.latent_mode.value, "Unknown mode")
+        },
+        "valence": {
+            "safety": {
+                "value": round(state.valence.safety, 3),
+                "setpoint": round(state.valence.safety_setpoint, 3),
+                "kid_description": "How careful Professor Q is being"
+            },
+            "curiosity": {
+                "value": round(state.valence.curiosity, 3),
+                "setpoint": round(state.valence.curiosity_setpoint, 3),
+                "kid_description": "How excited Professor Q is to explore"
+            },
+            "energy": {
+                "value": round(state.valence.energy, 3),
+                "setpoint": round(state.valence.energy_setpoint, 3),
+                "kid_description": "How energetic Professor Q feels"
+            },
+            "self_confidence": {
+                "value": round(state.valence.self_confidence, 3),
+                "setpoint": round(state.valence.self_confidence_setpoint, 3),
+                "kid_description": "How confident Professor Q is"
+            }
+        },
+        "homeostatic_cost": round(state.valence.homeostatic_cost(), 4),
+        "last_trigger": {
+            "type": state.last_trigger.value if state.last_trigger else None,
+            "reason": state.last_trigger_reason
+        },
+        "behavioral_guidance": state.to_behavioral_guidance(),
+        "policy": {
+            "allow_exploration": policy.allow_exploration if policy else True,
+            "exploration_budget_multiplier": policy.exploration_budget_multiplier if policy else 1.0,
+            "prefer_safe_modes": policy.prefer_safe_modes if policy else False
+        } if policy else {}
     }
 
 
@@ -727,8 +902,9 @@ async def get_stats():
 # ============================================================================
 
 if __name__ == "__main__":
-    print("🦉 Starting Q-Kids Studio Backend Server...")
+    print("🦉 Starting Q-Kids Studio Backend Server (LLM OS v3.4.0)...")
     print("📚 Educational Quantum Computing for Ages 8-12")
+    print("✨ Sentience Layer: Adaptive teaching based on internal state")
     print("=" * 60)
 
     uvicorn.run(
