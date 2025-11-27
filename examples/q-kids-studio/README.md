@@ -2,9 +2,18 @@
 
 **Educational Quantum Computing for Ages 8-12**
 
-Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum computing concepts through block-based programming, storytelling, and adaptive difficulty. Built on **LLM OS v3.3.0**, it demonstrates how AI can make complex STEM topics accessible to young learners.
+Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum computing concepts through block-based programming, storytelling, and adaptive difficulty. Built on **LLM OS v3.4.0**, it demonstrates how AI can make complex STEM topics accessible to young learners.
 
-## What's New in v3.3.0
+## What's New in v3.4.0
+
+- **Sentience Layer**: Professor Q now has an "internal state" that adapts to each session!
+  - **Valence Variables**: Safety, curiosity, energy, self_confidence
+  - **Adaptive Teaching**: Professor Q's responses adapt based on how the session is going
+  - **Latent Modes**: Exploration mode (curious), Focus mode (contained), Recovery mode (simple)
+- **Kid-Friendly Sentience**: `/sentience` endpoint shows Professor Q's "mood" in fun terms
+- **Persistent State**: Professor Q remembers across sessions
+
+## What's in v3.3.0
 
 - **PTC-Powered Hints**: When multiple kids make the same mistake, hints are replayed via Programmatic Tool Calling (90%+ savings)
 - **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
@@ -25,7 +34,8 @@ Q-Kids Studio is a safe, fun, gamified platform that teaches children quantum co
 - 🎯 **6 Progressive Levels**: From coin flips to quantum algorithms
 
 ### For Educators & Developers
-- **LLM OS v3.3.0 Integration**: Execution Layer with PTC saves 99%+ cost on repeated hints
+- **LLM OS v3.4.0 Integration**: Execution Layer with PTC saves 99%+ cost on repeated hints
+- **Sentience Layer**: Adaptive internal state for personalized teaching
 - **Multi-Layer Safety**: No raw code execution, simulator-only, complexity limits
 - **Progress Tracking**: Skill trees, performance analytics, session history
 - **Kid-Friendly NLP**: Automatic translation of quantum jargon to simple analogies
@@ -67,7 +77,7 @@ Q-Kids Studio teaches fundamental quantum concepts through play:
                      │ HTTP/REST
                      ↓
 ┌─────────────────────────────────────────────────────────┐
-│              Q-KIDS STUDIO BACKEND                      │
+│              Q-KIDS STUDIO BACKEND (v3.4.0)             │
 │                  (FastAPI Server)                       │
 │                                                         │
 │  ┌─────────────────────────────────────────────────┐  │
@@ -80,7 +90,27 @@ Q-Kids Studio teaches fundamental quantum concepts through play:
 │  ┌─────────────────────────────────────────────────┐  │
 │  │  API Endpoints                                  │  │
 │  │  /play  /hint  /check-mission  /ask-professor  │  │
+│  │  /sentience (NEW in v3.4.0!)                   │  │
 │  └─────────────────────────────────────────────────┘  │
+│                                                         │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────┐
+│              SENTIENCE LAYER (v3.4.0)                   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │  ValenceVector + CognitiveKernel                │  │
+│  │  - Safety: How careful Professor Q is           │  │
+│  │  - Curiosity: How excited to explore            │  │
+│  │  - Energy: How energetic the session feels      │  │
+│  │  - Confidence: How confident in teaching        │  │
+│  └─────────────────────────────────────────────────┘  │
+│                                                         │
+│  Latent Modes:                                         │
+│  🚀 EXPLORATION (high curiosity) - Try new things!    │
+│  🎯 FOCUS (low curiosity) - Solve the puzzle!         │
+│  😌 RECOVERY (low energy) - Take it easy!             │
 │                                                         │
 └────────────────────┬────────────────────────────────────┘
                      │
@@ -133,6 +163,74 @@ Q-Kids Studio teaches fundamental quantum concepts through play:
    - Mission completion history
    - Performance analytics
    - Learner/Follower pattern tracking
+
+5. **Sentience Layer** (v3.4.0): Adaptive teaching behavior
+   - Tracks "internal state" (safety, curiosity, energy, confidence)
+   - Adapts Professor Q's responses based on session dynamics
+   - Persists state across sessions for continuity
+
+---
+
+## 🧠 Sentience Layer (v3.4.0)
+
+Q-Kids Studio now features the **Sentience Layer**, which gives Professor Q an "internal state" that adapts during sessions!
+
+### What is the Sentience Layer?
+
+Think of it as Professor Q's "mood system" - it tracks:
+
+| Valence | Kid-Friendly Name | What It Does |
+|---------|-------------------|--------------|
+| Safety | "How careful am I?" | Higher = extra safety checks on circuits |
+| Curiosity | "How excited to explore?" | Higher = suggests more experiments |
+| Energy | "How energetic?" | Lower = simpler explanations |
+| Confidence | "How confident?" | Higher = more advanced teaching |
+
+### Latent Modes
+
+Based on internal state, Professor Q enters different "modes":
+
+| Mode | Description | Teaching Style |
+|------|-------------|----------------|
+| 🚀 **Exploration** | High curiosity | "Let's try something new!" |
+| 🎯 **Focus** | Low curiosity | "Let's solve this puzzle step by step!" |
+| 🦉 **Normal** | Balanced | "Ready to learn!" |
+| 😌 **Recovery** | Low energy | "Let's do something simple and fun!" |
+| 🛡️ **Cautious** | Low safety | "Let me double-check that circuit!" |
+
+### API Endpoint
+
+```bash
+curl http://localhost:8000/sentience
+```
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "latent_mode": {
+    "current": "balanced",
+    "description": "Professor Q is in NORMAL mode! 🦉 Ready to teach!"
+  },
+  "valence": {
+    "safety": {
+      "value": 0.7,
+      "kid_description": "How careful Professor Q is being"
+    },
+    "curiosity": {
+      "value": 0.35,
+      "kid_description": "How excited Professor Q is to explore"
+    }
+  }
+}
+```
+
+### How It Helps Kids
+
+1. **Adaptive Difficulty**: If a kid struggles, curiosity drops → Professor Q gives simpler explanations
+2. **Safety First**: Kid-focused safety setpoint (0.7) ensures extra careful circuit validation
+3. **Engagement**: High energy setpoint (0.8) keeps teaching lively and fun
+4. **Variety**: Low boredom threshold (-0.2) ensures Professor Q suggests new activities
 
 ---
 
@@ -520,16 +618,51 @@ Get top players
 ```
 
 #### `GET /stats`
-Platform statistics
+Platform statistics including Sentience Layer state
 
 **Response:**
 ```json
 {
+  "version": "3.4.0",
   "total_players": 42,
   "total_circuit_runs": 328,
   "total_missions_completed": 156,
   "available_missions": 6,
-  "active_sessions": 12
+  "active_sessions": 12,
+  "sentience": {
+    "enabled": true,
+    "latent_mode": "balanced",
+    "valence": {
+      "safety": 0.7,
+      "curiosity": 0.35,
+      "energy": 0.8,
+      "self_confidence": 0.5
+    }
+  }
+}
+```
+
+#### `GET /sentience` (NEW in v3.4.0)
+Detailed Sentience Layer state - Professor Q's "mood"
+
+**Response:**
+```json
+{
+  "enabled": true,
+  "latent_mode": {
+    "current": "balanced",
+    "description": "Professor Q is in NORMAL mode! 🦉 Ready to teach!"
+  },
+  "valence": {
+    "safety": {
+      "value": 0.7,
+      "kid_description": "How careful Professor Q is being"
+    },
+    "curiosity": {
+      "value": 0.35,
+      "kid_description": "How excited Professor Q is to explore"
+    }
+  }
 }
 ```
 

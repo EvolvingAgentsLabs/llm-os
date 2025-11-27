@@ -408,6 +408,44 @@ class ForcedFollowerStrategy(ModeSelectionStrategy):
         )
 
 
+class SentienceAwareStrategy(ModeSelectionStrategy):
+    """
+    Sentience-aware mode selection
+
+    This strategy uses the CognitiveKernel to modulate mode decisions
+    based on internal state (valence, latent mode, etc.).
+
+    Key behaviors:
+    - Recovery mode: Prefer cheap modes (FOLLOWER, CRYSTALLIZED)
+    - Cautious mode: Stricter safety, prefer proven traces
+    - Auto-creative mode: Allow more LEARNER for exploration
+    - Auto-contained mode: Conservative, task-focused
+
+    Requires a CognitiveKernel instance to be set via set_cognitive_kernel().
+    """
+
+    def __init__(self):
+        self.cognitive_kernel = None
+        self._base_strategy = AutoModeStrategy()
+
+    def set_cognitive_kernel(self, kernel):
+        """Set the cognitive kernel for state-aware decisions"""
+        self.cognitive_kernel = kernel
+
+    async def determine_mode(self, context: ModeContext) -> ModeDecision:
+        """Determine mode with sentience awareness"""
+
+        # First, get base decision from AutoModeStrategy
+        base_decision = await self._base_strategy.determine_mode(context)
+
+        # If no cognitive kernel, just return base decision
+        if not self.cognitive_kernel:
+            return base_decision
+
+        # Modulate decision based on cognitive state
+        return self.cognitive_kernel.modulate_mode_decision(base_decision, context.goal)
+
+
 # Strategy registry for easy access
 STRATEGIES = {
     "auto": AutoModeStrategy,
@@ -415,6 +453,7 @@ STRATEGIES = {
     "speed-optimized": SpeedOptimizedStrategy,
     "forced-learner": ForcedLearnerStrategy,
     "forced-follower": ForcedFollowerStrategy,
+    "sentience-aware": SentienceAwareStrategy,
 }
 
 

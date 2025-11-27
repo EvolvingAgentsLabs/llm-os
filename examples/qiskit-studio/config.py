@@ -2,7 +2,9 @@
 Configuration module for Qiskit Studio Backend
 
 Loads environment variables and provides configuration settings.
-Integrates with LLM OS v3.3.0 Advanced Tool Use features.
+Integrates with LLM OS v3.4.0 features including:
+- Advanced Tool Use (PTC, Tool Search, Tool Examples)
+- Sentience Layer (valence, homeostatic dynamics, cognitive kernel)
 """
 
 import os
@@ -48,6 +50,11 @@ class Config:
     LLMOS_ENABLE_TOOL_EXAMPLES: bool = os.getenv("LLMOS_ENABLE_TOOL_EXAMPLES", "true").lower() == "true"
     LLMOS_USE_EMBEDDINGS: bool = os.getenv("LLMOS_USE_EMBEDDINGS", "false").lower() == "true"
 
+    # LLM OS Sentience Layer settings (v3.4.0)
+    LLMOS_ENABLE_SENTIENCE: bool = os.getenv("LLMOS_ENABLE_SENTIENCE", "true").lower() == "true"
+    LLMOS_INJECT_INTERNAL_STATE: bool = os.getenv("LLMOS_INJECT_INTERNAL_STATE", "true").lower() == "true"
+    LLMOS_ENABLE_AUTO_IMPROVEMENT: bool = os.getenv("LLMOS_ENABLE_AUTO_IMPROVEMENT", "true").lower() == "true"
+
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
@@ -61,10 +68,11 @@ class Config:
     @classmethod
     def get_llmos_config(cls):
         """
-        Build LLMOSConfig with Execution Layer settings.
+        Build LLMOSConfig with Execution Layer and Sentience Layer settings.
 
-        Returns an LLMOSConfig instance configured for Qiskit Studio
-        with Advanced Tool Use features (PTC, Tool Search, Tool Examples).
+        Returns an LLMOSConfig instance configured for Qiskit Studio with:
+        - Advanced Tool Use features (PTC, Tool Search, Tool Examples)
+        - Sentience Layer (valence, homeostatic dynamics, cognitive kernel)
         """
         from kernel.config import (
             LLMOSConfig,
@@ -72,7 +80,8 @@ class Config:
             MemoryConfig,
             SDKConfig,
             DispatcherConfig,
-            ExecutionLayerConfig
+            ExecutionLayerConfig,
+            SentienceConfig
         )
 
         workspace = Path(__file__).parent / "workspace"
@@ -122,6 +131,29 @@ class Config:
                 enable_tool_examples=cls.LLMOS_ENABLE_TOOL_EXAMPLES,
                 tool_examples_min_success_rate=0.9,
                 tool_examples_max_per_tool=3
+            ),
+            sentience=SentienceConfig(
+                # Enable Sentience Layer for adaptive behavior
+                enable_sentience=cls.LLMOS_ENABLE_SENTIENCE,
+
+                # Valence set-points tuned for quantum computing tasks
+                # Higher safety for code execution, moderate curiosity for exploration
+                safety_setpoint=0.6,  # Higher for code execution safety
+                curiosity_setpoint=0.1,  # Moderate exploration for learning new algorithms
+                energy_setpoint=0.7,
+                self_confidence_setpoint=0.4,  # Higher confidence for specialized domain
+
+                # Context injection - agents see their internal state
+                inject_internal_state=cls.LLMOS_INJECT_INTERNAL_STATE,
+                inject_behavioral_guidance=True,
+
+                # Self-improvement for detecting repetitive patterns
+                enable_auto_improvement=cls.LLMOS_ENABLE_AUTO_IMPROVEMENT,
+                boredom_threshold=-0.3,  # Trigger improvement earlier for quantum tasks
+
+                # Persistence across sessions
+                auto_persist=True,
+                state_file="state/qiskit_sentience.json"
             ),
             project_name=cls.LLMOS_PROJECT_NAME
         )

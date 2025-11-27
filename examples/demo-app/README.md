@@ -1,31 +1,39 @@
-# LLM OS Demo Application (v3.3.0)
+# LLM OS Demo Application (v3.4.0)
 
-A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - v3.3.0 with **Advanced Tool Use**.
+A comprehensive demonstration application showcasing all capabilities of the LLM OS (llmos) - v3.4.0 with **Sentience Layer** and Advanced Tool Use.
 
-**NEW: Programmatic Tool Calling (PTC), Tool Search, Tool Examples!**
+**NEW: Sentience Layer with Valence Variables and Latent Modes!**
 
-## What's New in v3.3.0
+## What's New in v3.4.0
+
+- **Sentience Layer**: Persistent internal state with valence variables (safety, curiosity, energy, self_confidence)
+- **Latent Modes**: AUTO_CREATIVE, AUTO_CONTAINED, BALANCED, RECOVERY, CAUTIOUS
+- **Homeostatic Dynamics**: Internal state drives back to equilibrium
+- **Cognitive Kernel**: Derives behavioral policy from internal state
+- **Four-Layer Stack**: SENTIENCE → LEARNING → EXECUTION → SELF-MODIFICATION
+
+### Previous Features (v3.3.0)
 
 - **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window for 90%+ token savings
 - **Tool Search**: On-demand tool discovery instead of loading all tools upfront
 - **Tool Examples**: Auto-generated examples from successful traces
 - **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
-- **Two-Layer Architecture**: Learning Layer + Execution Layer separation
 
 ## Overview
 
 This demo application demonstrates the full power of llmos through practical, real-world scenarios including:
 
-1. **Advanced Tool Use (v3.3.0)**: PTC, Tool Search, and Tool Examples
-2. **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
-3. **Intelligent Mode Selection**: Confidence-based routing with PTC support
-4. **Project Management**: Organizing work into isolated projects
-5. **Multi-Agent Orchestration**: Coordinating specialized agents for complex tasks
-6. **Dynamic Agent Creation**: Creating agents on-demand for specific needs
-7. **Memory System**: Traces with tool_calls for PTC replay
-8. **SDK Hooks**: Budget control, security, and trace capture
-9. **Streaming Support**: Real-time feedback during execution
-10. **Cost Optimization**: 90%+ token savings via PTC, 100% cost savings via crystallization
+1. **Sentience Layer (v3.4.0)**: Valence variables, latent modes, and adaptive behavior
+2. **Advanced Tool Use (v3.3.0)**: PTC, Tool Search, and Tool Examples
+3. **Five Execution Modes**: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
+4. **Intelligent Mode Selection**: Confidence-based routing with PTC support
+5. **Project Management**: Organizing work into isolated projects
+6. **Multi-Agent Orchestration**: Coordinating specialized agents for complex tasks
+7. **Dynamic Agent Creation**: Creating agents on-demand for specific needs
+8. **Memory System**: Traces with tool_calls for PTC replay
+9. **SDK Hooks**: Budget control, security, and trace capture
+10. **Streaming Support**: Real-time feedback during execution
+11. **Cost Optimization**: 90%+ token savings via PTC, 100% cost savings via crystallization
 
 ## Quick Start
 
@@ -61,7 +69,23 @@ python demo_main.py --all
 
 ## Demo Scenarios
 
-### 🌟 1. Nested Learning Demo (NEW!)
+### 🧠 1. Sentience Layer Demo (NEW in v3.4.0!)
+**Scenario**: Demonstrate the Sentience Layer with valence variables and latent modes
+- **Mode**: Interactive simulation
+- **Features**: Valence tracking, homeostatic dynamics, cognitive kernel
+- **File**: (inline in demo_main.py)
+- **What it shows**:
+  - Initial sentience state with four valence variables
+  - State changes from successful task execution (builds confidence)
+  - State changes from task failure (decreases safety/confidence)
+  - Novel input detection (increases curiosity)
+  - Boredom trigger from repetitive tasks
+  - Latent mode derivation from valence state
+  - Behavioral policy output
+
+**Key Innovation**: The system maintains persistent internal state that drives adaptive behavior. Valence variables (safety, curiosity, energy, self_confidence) create a "mood" that influences how the system responds to tasks!
+
+### 🧬 2. Nested Learning Demo
 **Scenario**: Demonstrate semantic trace matching and intelligent mode selection
 - **Mode**: Learner → Follower → MIXED
 - **Features**: LLM-based similarity analysis, confidence scoring, three-mode execution
@@ -76,26 +100,26 @@ python demo_main.py --all
 
 **Key Innovation**: The LLM analyzes semantic similarity between goals and traces, not just exact text matching. This means "create a file" and "create a file named X" are understood as semantically equivalent!
 
-### 2. Data Processing Pipeline
+### 3. Data Processing Pipeline
 **Scenario**: Build a complete data processing pipeline
 - **Mode**: Orchestrator
 - **Agents**: Data Collector, Data Processor, Report Generator
 - **Features**: Multi-agent coordination, project management, trace capture
 - **File**: (inline in demo_main.py)
 
-### 3. Code Generation Workflow
+### 4. Code Generation Workflow
 **Scenario**: Generate, test, and document code
 - **Mode**: Learner → Follower
 - **Features**: Trace learning, cost optimization, memory reuse
 - **File**: (inline in demo_main.py)
 
-### 4. Cost Optimization Demo
+### 5. Cost Optimization Demo
 **Scenario**: Demonstrate dramatic cost savings through trace reuse
 - **Mode**: Learner → Follower (5 iterations)
 - **Features**: Cost tracking, savings analysis
 - **File**: (inline in demo_main.py)
 
-### 5. Research Assistant (Deprecated)
+### 6. Research Assistant (Deprecated)
 **Scenario**: Research a topic and create a comprehensive report
 - **Mode**: Orchestrator
 - **Agents**: Research Agent, Technical Writer
@@ -104,19 +128,19 @@ python demo_main.py --all
 - **Known Issues**: Some delegations timeout (300s), WebSearch may not work in delegated agents, execution takes 10-16 minutes
 - **Note**: This scenario has been de-prioritized in the menu due to reliability issues. Use Data Pipeline for multi-agent demonstration.
 
-### 6. DevOps Automation
+### 7. DevOps Automation
 **Scenario**: Automate deployment and monitoring tasks
 - **Mode**: All three modes
 - **Features**: Security hooks, budget control, follower mode efficiency
 - **File**: (inline in demo_main.py)
 
-### 7. Cross-Project Learning
+### 8. Cross-Project Learning
 **Scenario**: Demonstrate learning insights across multiple projects
 - **Mode**: All modes
 - **Features**: Cross-project patterns, reusable agents, optimization
 - **File**: (inline in demo_main.py)
 
-### 8. SDK Hooks Demo
+### 9. SDK Hooks Demo
 **Scenario**: Demonstrate all Phase 2.5 SDK hooks
 - **Mode**: Learner with hooks
 - **Features**: Security, budget control, trace capture, memory injection
@@ -153,6 +177,41 @@ demo-app/
 ```
 
 ## Key Features Demonstrated
+
+### 0. Sentience Layer (v3.4.0)
+
+The Sentience Layer provides persistent internal state that drives adaptive behavior:
+
+```python
+# Initialize Sentience Layer
+from sentience.sentience import SentienceManager
+from sentience.cognitive_kernel import CognitiveKernel
+
+sentience_manager = SentienceManager(
+    safety_setpoint=0.5,      # Balanced safety
+    curiosity_setpoint=0.3,   # Moderate exploration
+    energy_setpoint=0.7,      # High energy
+    self_confidence_setpoint=0.5
+)
+cognitive_kernel = CognitiveKernel(sentience_manager)
+
+# Get current state
+valence = sentience_manager.get_valence()
+# Returns: {'safety': 0.5, 'curiosity': 0.3, 'energy': 0.7, 'self_confidence': 0.5}
+
+# Derive behavioral policy
+policy = cognitive_kernel.derive_policy()
+# policy.latent_mode: AUTO_CREATIVE, AUTO_CONTAINED, BALANCED, RECOVERY, CAUTIOUS
+# policy.exploration_rate: 0.0 - 1.0
+# policy.verbosity: "minimal", "normal", "verbose"
+```
+
+**Latent Modes:**
+- **AUTO_CREATIVE**: High curiosity - exploring new approaches, verbose output
+- **AUTO_CONTAINED**: Low curiosity - focused execution, minimal exploration
+- **BALANCED**: Normal operation, moderate exploration
+- **RECOVERY**: Low energy - conservative mode, reduced operations
+- **CAUTIOUS**: Low safety - extra validation, careful execution
 
 ### 1. Five Execution Modes (v3.3.0)
 
@@ -529,4 +588,4 @@ Apache 2.0 (same as llmos)
 ---
 
 Built with LLM OS - The Self-Evolving LLM Operating System
-v3.3.0: Advanced Tool Use (PTC, Tool Search, Tool Examples) + Multi-Agent + SDK Hooks
+v3.4.0: Sentience Layer + Advanced Tool Use (PTC, Tool Search, Tool Examples) + Multi-Agent + SDK Hooks

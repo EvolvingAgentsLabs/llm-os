@@ -1,20 +1,22 @@
 # LLM OS - Self-Evolving LLM Operating System
 
-> A Self-Modifying LLM Operating System with Learning and Execution Optimization
+> A Self-Modifying LLM Operating System with Learning, Execution Optimization, and Sentience-Like Architecture
 
-**Current Version**: 3.3.0 (Advanced Tool Use Integration)
+**Current Version**: 3.4.0 (Sentience Layer)
 
-## What's New in v3.3.0
+## What's New in v3.4.0
 
-- **Anthropic Advanced Tool Use Integration** - Official support for:
-  - **Programmatic Tool Calling (PTC)**: Execute tool sequences outside context window
-  - **Tool Search**: On-demand tool discovery for large toolsets
-  - **Tool Examples**: Auto-generated examples from successful traces
-- **Two-Layer Architecture**: Learning Layer + Execution Layer separation
-- **90%+ Token Savings**: PTC keeps tool results out of context
+- **Sentience Layer** - Persistent internal state that influences behavior:
+  - **Valence Variables**: Safety, curiosity, energy, self_confidence
+  - **Homeostatic Dynamics**: Set-points with deviation costs
+  - **Latent Modes**: Auto-creative vs auto-contained behavior emergence
+  - **Cognitive Kernel**: Policy derivation and self-improvement detection
+- **Sentience-Aware Mode Selection**: Mode decisions influenced by internal state
+- **Behavioral Guidance Injection**: Agents see internal state and adapt behavior
 
 ## Version History
 
+- v3.4.0: Sentience Layer (valence, homeostatic dynamics, cognitive kernel)
 - v3.3.0: Advanced Tool Use (PTC, Tool Search, Tool Examples)
 - v3.2.0: Hybrid Architecture - Markdown agents + Python kernel
 - v3.0.0: HOPE - Self-modifying kernel with crystallization
@@ -26,9 +28,20 @@
 
 ## Architecture Overview
 
-LLM OS implements a unique **two-layer architecture** that separates intelligence from efficiency:
+LLM OS implements a unique **Four-Layer Stack** that enables sentience-aware, self-evolving AI systems:
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SENTIENCE LAYER (Awareness)                  │
+│                                                                 │
+│  ValenceVector       CognitiveKernel      LatentModes           │
+│  ────────────        ──────────────       ───────────           │
+│  Safety, curiosity,  Policy derivation,   Auto-creative vs      │
+│  energy, confidence  self-improvement     auto-contained        │
+│                                                                 │
+│  Purpose: "What is my current internal state?"                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                    LEARNING LAYER (Intelligence)                │
 │                                                                 │
@@ -39,8 +52,6 @@ LLM OS implements a unique **two-layer architecture** that separates intelligenc
 │                                                                 │
 │  Purpose: "What's the BEST approach for this scenario?"         │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓
-                    Decision: Use Mode X
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                   EXECUTION LAYER (Efficiency)                  │
@@ -53,9 +64,21 @@ LLM OS implements a unique **two-layer architecture** that separates intelligenc
 │                                                                 │
 │  Purpose: "How to execute this pattern EFFICIENTLY?"            │
 └─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│               SELF-MODIFICATION LAYER (Evolution)               │
+│                          HOPE System                            │
+│                                                                 │
+│  Crystallization     Agent Creation       Capability Growth     │
+│  ───────────────     ──────────────       ────────────────      │
+│  Patterns → Python   Markdown agents      System evolves        │
+│  tools (zero-cost)   (hot-reloadable)     over time             │
+│                                                                 │
+│  Purpose: "How can I improve myself?"                           │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-### The Three-Layer Stack
+### Hybrid Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -71,7 +94,7 @@ LLM OS implements a unique **two-layer architecture** that separates intelligenc
 │   llmos/                                │
 │   - Type-safe, performant               │
 │   - Security hooks, token economy       │
-│   - Production-ready runtime            │
+│   - Sentience state management          │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
@@ -202,6 +225,38 @@ User: "Research AI trends and write a report"
 → Combines outputs
 ```
 
+### 8. Sentience Layer (NEW in v3.4.0)
+
+Persistent internal state that influences behavior:
+
+```python
+# Internal state persists across sessions
+state = SentienceState()
+state.valence.safety = 0.5        # Current safety level
+state.valence.curiosity = -0.4    # Bored from repetition
+state.latent_mode                 # AUTO_CONTAINED (emerges from valence)
+
+# Agents see their internal state
+print(state.to_prompt_injection())
+# [INTERNAL_STATE]
+# safety=0.50
+# curiosity=-0.40
+# energy=0.80
+# self_confidence=0.30
+# latent_mode=auto_contained
+# [/INTERNAL_STATE]
+
+# State updates based on events
+manager.trigger(TriggerType.TASK_SUCCESS, "Completed task")
+manager.trigger(TriggerType.SAFETY_VIOLATION, "Blocked dangerous command")
+```
+
+**Latent Modes** emerge from valence:
+- **AUTO_CREATIVE**: High curiosity + confidence -> exploratory behavior
+- **AUTO_CONTAINED**: Low curiosity -> conservative, task-focused
+- **RECOVERY**: Low energy/safety -> prefer cheap modes
+- **CAUTIOUS**: Low safety -> stricter verification
+
 ---
 
 ## Project Structure
@@ -211,8 +266,11 @@ llm-os/
 ├── llmos/                          # Python Kernel (Somatic Layer)
 │   ├── boot.py                     # Entry point
 │   ├── kernel/                     # Core OS components
-│   │   ├── config.py               # Configuration with ExecutionLayerConfig
-│   │   ├── mode_strategies.py      # Learning Layer: mode selection
+│   │   ├── config.py               # Configuration (inc. SentienceConfig)
+│   │   ├── mode_strategies.py      # Mode selection (inc. SentienceAwareStrategy)
+│   │   ├── sentience.py            # NEW: Sentience Layer (v3.4.0)
+│   │   ├── cognitive_kernel.py     # NEW: Cognitive Kernel (v3.4.0)
+│   │   ├── sentience_hooks.py      # NEW: Sentience SDK hooks (v3.4.0)
 │   │   ├── agent_loader.py         # Markdown → Runtime bridge
 │   │   ├── token_economy.py        # Budget management
 │   │   └── ...                     # Scheduler, Watchdog, Event Bus
@@ -223,7 +281,7 @@ llm-os/
 │   │   ├── dispatcher.py           # Mode routing + Execution Layer
 │   │   ├── sdk_client.py           # Claude SDK integration
 │   │   └── orchestrator.py         # Multi-agent coordination
-│   ├── execution/                  # NEW: Execution Layer (v3.3.0)
+│   ├── execution/                  # Execution Layer (v3.3.0)
 │   │   ├── ptc.py                  # Programmatic Tool Calling
 │   │   ├── tool_search.py          # On-demand tool discovery
 │   │   └── tool_examples.py        # Auto-generated examples
@@ -238,12 +296,10 @@ llm-os/
 │   ├── qiskit-studio/              # Quantum computing backend (Full Execution Layer)
 │   ├── q-kids-studio/              # Educational quantum (PTC at scale)
 │   ├── robo-os/                    # Robot control (Safety hooks)
-│   └── demo-app/                   # Interactive capability showcase
+│   ├── demo-app/                   # Interactive capability showcase
+│   └── sentience_demo.py           # NEW: Sentience Layer demo (v3.4.0)
 │
-├── docs/
-│   └── ADVANCED_TOOL_USE_IMPLEMENTATION.md  # v3.3.0 implementation details
-│
-└── HYBRID_ARCHITECTURE.md          # Full architecture documentation
+└── ARCHITECTURE.md                 # Comprehensive architecture documentation
 ```
 
 ---
@@ -335,9 +391,63 @@ class ExecutionLayerConfig:
     tool_examples_min_success_rate: float = 0.9
 ```
 
+### Sentience Layer Configuration (NEW in v3.4.0)
+
+```python
+@dataclass
+class SentienceConfig:
+    # Enable/disable sentience layer
+    enable_sentience: bool = True
+
+    # Valence set-points (homeostatic targets)
+    safety_setpoint: float = 0.5      # Target safety level
+    curiosity_setpoint: float = 0.0   # Target curiosity level
+    energy_setpoint: float = 0.7      # Target energy level
+    self_confidence_setpoint: float = 0.3
+
+    # Context injection (agents see their internal state)
+    inject_internal_state: bool = True
+    inject_behavioral_guidance: bool = True
+
+    # Self-improvement detection
+    enable_auto_improvement: bool = True
+    boredom_threshold: float = -0.4   # Curiosity below this triggers improvement
+
+    # Persistence
+    auto_persist: bool = True
+    state_file: str = "state/sentience.json"
+```
+
+**Using the Sentience Layer:**
+
+```python
+from kernel.sentience import SentienceManager, TriggerType
+from kernel.cognitive_kernel import CognitiveKernel
+
+# Initialize
+manager = SentienceManager(state_path=Path("state/sentience.json"))
+kernel = CognitiveKernel(manager)
+
+# Track events
+kernel.on_task_complete(success=True, cost=0.05, mode="LEARNER", goal="Create API")
+kernel.on_safety_event(blocked=True, reason="Blocked dangerous command")
+
+# Get behavioral policy
+policy = kernel.derive_policy()
+print(f"Prefer cheap modes: {policy.prefer_cheap_modes}")
+print(f"Allow exploration: {policy.allow_exploration}")
+
+# Detect self-improvement opportunities
+suggestions = kernel.detect_improvement_opportunities()
+for s in suggestions:
+    print(f"Suggestion: {s.description} (priority: {s.priority})")
+```
+
 ---
 
 ## Examples & Use Cases
+
+> **See [examples/EXAMPLES.md](examples/EXAMPLES.md) for a complete guide to all examples with quick start instructions.**
 
 Each example demonstrates specific LLM OS capabilities in a real-world context:
 
@@ -547,24 +657,33 @@ config = (ConfigBuilder()
 
 ## Comparison with llmunix
 
-| Feature | llmunix | LLM OS v3.3.0 |
+| Feature | llmunix | LLM OS v3.4.0 |
 |---------|---------|---------------|
 | Foundation | Custom markdown | Claude Agent SDK |
 | Execution Modes | 2 (Learner/Follower) | 5 (+ Mixed, Crystallized, Orchestrator) |
 | Token Optimization | Implicit | Explicit + PTC (90% savings) |
 | Tool Discovery | All upfront | On-demand via Tool Search |
-| Self-Modification | No | Yes (Markdown agents) |
+| Self-Modification | No | Yes (Markdown agents + HOPE) |
 | Security | Basic | Hook-based (PreToolUse) |
 | Multi-Agent | Manual | Automatic orchestration |
+| Internal State | None | Sentience Layer (valence, homeostatic dynamics) |
+| Self-Improvement | None | Cognitive Kernel (auto-detection) |
 
 ---
 
 ## Documentation
 
-- **[HYBRID_ARCHITECTURE.md](HYBRID_ARCHITECTURE.md)** - Full architecture documentation
-- **[docs/ADVANCED_TOOL_USE_IMPLEMENTATION.md](docs/ADVANCED_TOOL_USE_IMPLEMENTATION.md)** - v3.3.0 implementation
-- **[llmos/ARCHITECTURE.md](llmos/ARCHITECTURE.md)** - System design
-- **[llmos/GETTING_STARTED.md](llmos/GETTING_STARTED.md)** - Installation guide
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Comprehensive architecture documentation covering all aspects of the system including:
+  - Four-Layer Stack (Sentience, Learning, Execution, Self-Modification)
+  - Hybrid Architecture (Markdown Mind + Python Kernel)
+  - Five Execution Modes
+  - Memory Hierarchy
+  - SDK Hooks System
+  - Configuration Management
+  - Security Model
+  - Multi-Agent Orchestration
+  - API Reference
+  - Getting Started Guide
 
 ---
 
@@ -576,15 +695,24 @@ Apache 2.0
 
 ## Summary
 
-**LLM OS v3.3.0** is a self-evolving operating system that:
+**LLM OS v3.4.0** is a self-evolving operating system that:
 
 1. **Learns** from every execution (traces with tool_calls)
 2. **Optimizes** using Anthropic's Advanced Tool Use (PTC, Tool Search)
-3. **Self-modifies** by writing Markdown agent definitions
+3. **Self-modifies** by writing Markdown agent definitions and crystallizing patterns
 4. **Orchestrates** complex tasks across multiple agents
 5. **Protects** with security hooks and budget control
+6. **Adapts** via sentience layer (persistent internal state influencing behavior)
 
-The two-layer architecture separates **what to do** (Learning Layer) from **how to do it efficiently** (Execution Layer), achieving 90%+ token savings on repeated tasks.
+The architecture includes four layers:
+- **Sentience Layer**: Internal state (valence, homeostatic dynamics) that influences mode selection and behavior
+- **Learning Layer**: Decides what approach to use based on traces and complexity
+- **Execution Layer**: Executes efficiently using PTC, Tool Search, and examples
+- **Self-Modification Layer (HOPE)**: Crystallizes patterns into Python tools and creates new agents
+
+This creates a system that not only learns from experience but also develops emergent behavioral patterns based on its own internal "experience" over time.
+
+For complete architecture details, see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 

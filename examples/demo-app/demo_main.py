@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-LLM OS Demo Application - Main Entry Point (v3.3.0)
+LLM OS Demo Application - Main Entry Point (v3.4.0)
 
 Interactive menu-driven demonstration of all llmos capabilities including:
+- Sentience Layer with valence variables and latent modes
 - Advanced Tool Use (PTC, Tool Search, Tool Examples)
 - Five Execution Modes: CRYSTALLIZED, FOLLOWER, MIXED, LEARNER, ORCHESTRATOR
 - 90%+ token savings via Programmatic Tool Calling
@@ -29,6 +30,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
 from boot import LLMOS
+from boot.config import LLMOSConfig, SentienceConfig
+from sentience.sentience import SentienceManager
+from sentience.cognitive_kernel import CognitiveKernel
 from scenarios.nested_learning_demo import run_nested_learning_demo
 
 
@@ -61,6 +65,10 @@ class DemoApp:
         self.demo_output_dir = Path(__file__).parent / "output"
         self.demo_output_dir.mkdir(exist_ok=True)
 
+        # Sentience Layer components (v3.4.0)
+        self.sentience_manager = None
+        self.cognitive_kernel = None
+
         # Track costs across scenarios
         self.cost_tracker = {
             "total_spent": 0.0,
@@ -71,12 +79,13 @@ class DemoApp:
         """Display welcome banner"""
         banner = """
 [bold cyan]╔══════════════════════════════════════════════════════════════╗[/bold cyan]
-[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (v3.3.0)[/bold yellow]                 [bold cyan]║[/bold cyan]
-[bold cyan]║[/bold cyan]    Advanced Tool Use: PTC, Tool Search, Tool Examples   [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    [bold yellow]LLM OS - Demo Application (v3.4.0)[/bold yellow]                 [bold cyan]║[/bold cyan]
+[bold cyan]║[/bold cyan]    Sentience Layer + Advanced Tool Use                   [bold cyan]║[/bold cyan]
 [bold cyan]╚══════════════════════════════════════════════════════════════╝[/bold cyan]
 
-[bold]Five Execution Modes:[/bold] CRYSTALLIZED | FOLLOWER | MIXED | LEARNER | ORCHESTRATOR
-[bold]Features:[/bold] PTC (90%+ savings), Tool Search, Nested Learning, Multi-Agent
+[bold]Four-Layer Stack:[/bold] SENTIENCE → LEARNING → EXECUTION → SELF-MODIFICATION
+[bold]Latent Modes:[/bold] AUTO_CREATIVE | AUTO_CONTAINED | BALANCED | RECOVERY | CAUTIOUS
+[bold]Features:[/bold] Valence Variables, PTC (90%+ savings), Tool Search, Multi-Agent
 [bold]Budget:[/bold] $""" + f"{self.budget_usd:.2f}"
 
         console.print(Panel(banner, border_style="cyan"))
@@ -86,15 +95,16 @@ class DemoApp:
         console.print("\n[bold cyan]Select a demo scenario:[/bold cyan]\n")
 
         scenarios = [
-            ("1", "🧬 Nested Learning Demo", "NEW! Semantic matching & MIXED mode 🌟"),
-            ("2", "Code Generation Workflow", "Learn-once, execute-free ✅"),
-            ("3", "Cost Optimization Demo", "Dramatic cost savings ✅"),
-            ("4", "Data Processing Pipeline", "Multi-agent orchestration ✅"),
-            ("5", "DevOps Automation", "Automated deployment ✅"),
-            ("6", "Cross-Project Learning", "Learning insights ✅"),
-            ("7", "SDK Hooks Demo", "Budget control & security ✅"),
-            ("8", "Run All Scenarios", "Execute all demos (recommended) ✅"),
-            ("9", "View System Stats", "Show traces, agents, memory ✅"),
+            ("1", "🧠 Sentience Layer Demo", "NEW! Valence variables & latent modes 🌟"),
+            ("2", "🧬 Nested Learning Demo", "Semantic matching & MIXED mode ✅"),
+            ("3", "Code Generation Workflow", "Learn-once, execute-free ✅"),
+            ("4", "Cost Optimization Demo", "Dramatic cost savings ✅"),
+            ("5", "Data Processing Pipeline", "Multi-agent orchestration ✅"),
+            ("6", "DevOps Automation", "Automated deployment ✅"),
+            ("7", "Cross-Project Learning", "Learning insights ✅"),
+            ("8", "SDK Hooks Demo", "Budget control & security ✅"),
+            ("9", "Run All Scenarios", "Execute all demos (recommended) ✅"),
+            ("S", "View System Stats", "Show traces, agents, sentience ✅"),
             ("0", "Exit", "Exit demo application")
         ]
 
@@ -110,13 +120,33 @@ class DemoApp:
         console.print()
 
     async def boot_os(self, project_name: str = None):
-        """Boot the LLM OS"""
+        """Boot the LLM OS with Sentience Layer"""
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             console=console
         ) as progress:
             task = progress.add_task("🚀 Booting LLM OS...", total=None)
+
+            # Initialize Sentience Layer (v3.4.0)
+            sentience_config = SentienceConfig(
+                enable_sentience=True,
+                safety_setpoint=0.5,      # Balanced safety for demos
+                curiosity_setpoint=0.3,   # Moderate curiosity for exploration
+                energy_setpoint=0.7,      # High energy for active demos
+                self_confidence_setpoint=0.5,
+                boredom_threshold=-0.3,   # Trigger variety at moderate boredom
+                state_file="state/demo_sentience.json"
+            )
+
+            self.sentience_manager = SentienceManager(
+                safety_setpoint=sentience_config.safety_setpoint,
+                curiosity_setpoint=sentience_config.curiosity_setpoint,
+                energy_setpoint=sentience_config.energy_setpoint,
+                self_confidence_setpoint=sentience_config.self_confidence_setpoint,
+                boredom_threshold=sentience_config.boredom_threshold
+            )
+            self.cognitive_kernel = CognitiveKernel(self.sentience_manager)
 
             self.os = LLMOS(
                 budget_usd=self.budget_usd,
@@ -126,7 +156,133 @@ class DemoApp:
 
             progress.update(task, completed=True)
 
-        console.print("[green]✅ LLM OS ready![/green]\n")
+        console.print("[green]✅ LLM OS ready![/green]")
+        console.print("[green]✅ Sentience Layer initialized[/green]\n")
+
+    async def scenario_sentience_demo(self):
+        """Scenario: Sentience Layer Demo (v3.4.0)"""
+        console.print(Panel(
+            "[bold yellow]Sentience Layer Demo (v3.4.0)[/bold yellow]\n\n"
+            "Demonstrates the new Sentience Layer with:\n"
+            "1. Valence Variables: safety, curiosity, energy, self_confidence\n"
+            "2. Homeostatic Dynamics: Internal state drives back to equilibrium\n"
+            "3. Latent Modes: AUTO_CREATIVE, AUTO_CONTAINED, BALANCED, RECOVERY, CAUTIOUS\n"
+            "4. Cognitive Kernel: Derives behavioral policy from internal state\n\n"
+            "[bold]Features:[/bold] Persistent internal state, adaptive behavior",
+            border_style="yellow"
+        ))
+
+        if not self.os:
+            await self.boot_os("sentience_demo")
+
+        # Display initial sentience state
+        console.print("\n[cyan]Initial Sentience State:[/cyan]\n")
+        self._display_sentience_state()
+
+        # Simulate interactions and show state changes
+        console.print("\n[cyan]Simulating interactions...[/cyan]\n")
+
+        # Simulate a successful task
+        console.print("[yellow]1. Simulating successful task execution...[/yellow]")
+        self.sentience_manager.on_interaction()
+        self.sentience_manager.on_success()
+        console.print("[green]   ✓ Task completed successfully[/green]")
+        self._display_sentience_state()
+
+        # Simulate another successful task (builds confidence)
+        console.print("\n[yellow]2. Simulating another successful task...[/yellow]")
+        self.sentience_manager.on_interaction()
+        self.sentience_manager.on_success()
+        console.print("[green]   ✓ Task completed successfully[/green]")
+        self._display_sentience_state()
+
+        # Simulate a failure (decreases safety/confidence)
+        console.print("\n[yellow]3. Simulating a task failure...[/yellow]")
+        self.sentience_manager.on_interaction()
+        self.sentience_manager.on_failure()
+        console.print("[red]   ✗ Task failed[/red]")
+        self._display_sentience_state()
+
+        # Simulate novel input (increases curiosity)
+        console.print("\n[yellow]4. Simulating novel/surprising input...[/yellow]")
+        self.sentience_manager.on_novel_input(surprise_level=0.8)
+        console.print("[magenta]   ? Novel input detected (surprise=0.8)[/magenta]")
+        self._display_sentience_state()
+
+        # Simulate boredom trigger (repetitive tasks)
+        console.print("\n[yellow]5. Simulating repetitive tasks (boredom)...[/yellow]")
+        for i in range(3):
+            self.sentience_manager.on_interaction()
+            self.sentience_manager.on_success()
+        console.print("[dim]   ... Repetitive successful tasks[/dim]")
+        self._display_sentience_state()
+
+        # Show final policy
+        console.print("\n[cyan]Final Cognitive Policy:[/cyan]\n")
+        policy = self.cognitive_kernel.derive_policy()
+
+        policy_table = Table(title="Behavioral Policy", box=box.ROUNDED)
+        policy_table.add_column("Parameter", style="cyan")
+        policy_table.add_column("Value", style="yellow")
+
+        policy_table.add_row("Latent Mode", policy.latent_mode.value.upper())
+        policy_table.add_row("Exploration Rate", f"{policy.exploration_rate:.2f}")
+        policy_table.add_row("Verbosity", policy.verbosity)
+        policy_table.add_row("Self-Improvement", str(policy.self_improvement_enabled))
+
+        console.print(policy_table)
+
+        # Mode descriptions
+        mode_descriptions = {
+            "auto_creative": "HIGH CURIOSITY - Exploring new approaches, verbose output",
+            "auto_contained": "LOW CURIOSITY - Focused execution, minimal exploration",
+            "balanced": "NORMAL - Standard operation, moderate exploration",
+            "recovery": "LOW ENERGY - Conservative mode, reduced operations",
+            "cautious": "LOW SAFETY - Extra validation, careful execution"
+        }
+
+        console.print(f"\n[bold]Mode Description:[/bold] {mode_descriptions.get(policy.latent_mode.value, 'Unknown')}")
+
+        console.print(Panel(
+            "[bold green]Sentience Layer Demo Complete![/bold green]\n\n"
+            "The Sentience Layer provides:\n"
+            "• Persistent internal state across interactions\n"
+            "• Automatic behavioral adaptation based on context\n"
+            "• Homeostatic dynamics that maintain equilibrium\n"
+            "• Integration with agents for context-aware responses",
+            border_style="green"
+        ))
+
+    def _display_sentience_state(self):
+        """Display current sentience state"""
+        if not self.sentience_manager or not self.cognitive_kernel:
+            console.print("[dim]Sentience Layer not initialized[/dim]")
+            return
+
+        valence = self.sentience_manager.get_valence()
+        policy = self.cognitive_kernel.derive_policy()
+
+        table = Table(box=box.SIMPLE)
+        table.add_column("Valence", style="cyan", width=18)
+        table.add_column("Value", style="yellow", width=8)
+        table.add_column("Bar", style="green", width=20)
+        table.add_column("Setpoint", style="dim", width=10)
+
+        setpoints = {
+            "safety": self.sentience_manager.safety_setpoint,
+            "curiosity": self.sentience_manager.curiosity_setpoint,
+            "energy": self.sentience_manager.energy_setpoint,
+            "self_confidence": self.sentience_manager.self_confidence_setpoint
+        }
+
+        for name, value in valence.items():
+            bar_length = int(value * 20)
+            bar = "█" * bar_length + "░" * (20 - bar_length)
+            setpoint = setpoints.get(name, 0.5)
+            table.add_row(name.replace("_", " ").title(), f"{value:.2f}", bar, f"({setpoint:.1f})")
+
+        console.print(table)
+        console.print(f"[bold]Latent Mode:[/bold] {policy.latent_mode.value.upper()}")
 
     async def scenario_1_data_pipeline(self):
         """Scenario 1: Data Processing Pipeline"""
@@ -500,7 +656,7 @@ IMPORTANT CONSTRAINTS:
 
         self._track_cost("sdk_hooks", result.get("cost", 0.0))
 
-    async def scenario_8_run_all(self):
+    async def scenario_9_run_all(self):
         """Run all scenarios sequentially"""
         console.print(Panel(
             "[bold yellow]Running All Scenarios[/bold yellow]\n\n"
@@ -513,6 +669,7 @@ IMPORTANT CONSTRAINTS:
         input("\nPress Enter to continue or Ctrl+C to cancel...")
 
         scenarios = [
+            ("Sentience Layer", self.scenario_sentience_demo),
             ("Nested Learning", self.scenario_nested_learning),
             ("Code Generation", self.scenario_2_code_generation),
             ("Cost Optimization", self.scenario_6_cost_optimization),
@@ -547,7 +704,13 @@ IMPORTANT CONSTRAINTS:
         if not self.os:
             await self.boot_os()
 
-        console.print(Panel("[bold]System Statistics[/bold]", border_style="cyan"))
+        console.print(Panel("[bold]System Statistics (v3.4.0)[/bold]", border_style="cyan"))
+
+        # Sentience stats (v3.4.0)
+        if self.sentience_manager and self.cognitive_kernel:
+            console.print("\n[bold cyan]Sentience Layer Status:[/bold cyan]\n")
+            self._display_sentience_state()
+            console.print()
 
         # Memory stats
         mem_stats = self.os.memory_query.get_memory_statistics()
@@ -652,29 +815,31 @@ IMPORTANT CONSTRAINTS:
         while True:
             self.show_menu()
 
-            choice = console.input("[bold cyan]Choice (0-9):[/bold cyan] ").strip()
+            choice = console.input("[bold cyan]Choice (0-9, S):[/bold cyan] ").strip().upper()
 
             try:
                 if choice == "0":
                     console.print("\n[yellow]Exiting demo...[/yellow]")
                     break
                 elif choice == "1":
-                    await self.scenario_nested_learning()
+                    await self.scenario_sentience_demo()
                 elif choice == "2":
-                    await self.scenario_2_code_generation()
+                    await self.scenario_nested_learning()
                 elif choice == "3":
-                    await self.scenario_6_cost_optimization()
+                    await self.scenario_2_code_generation()
                 elif choice == "4":
-                    await self.scenario_1_data_pipeline()
+                    await self.scenario_6_cost_optimization()
                 elif choice == "5":
-                    await self.scenario_4_devops_automation()
+                    await self.scenario_1_data_pipeline()
                 elif choice == "6":
-                    await self.scenario_5_cross_project()
+                    await self.scenario_4_devops_automation()
                 elif choice == "7":
-                    await self.scenario_7_sdk_hooks()
+                    await self.scenario_5_cross_project()
                 elif choice == "8":
-                    await self.scenario_8_run_all()
+                    await self.scenario_7_sdk_hooks()
                 elif choice == "9":
+                    await self.scenario_9_run_all()
+                elif choice == "S":
                     await self.view_system_stats()
                 else:
                     console.print("[red]Invalid choice. Please try again.[/red]")
@@ -722,6 +887,7 @@ async def main():
         await demo.boot_os()
 
         scenario_map = {
+            "sentience": demo.scenario_sentience_demo,
             "nested-learning": demo.scenario_nested_learning,
             "data-pipeline": demo.scenario_1_data_pipeline,
             "code-generation": demo.scenario_2_code_generation,
